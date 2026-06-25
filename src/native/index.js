@@ -22,6 +22,8 @@ try {
     eject: fail,
     reload: fail,
     moduleLoaded: () => false,
+    systemAwake: fail,
+    synthInput: fail,
   };
 }
 
@@ -31,6 +33,8 @@ const capabilities = {
   inject: platform === 'win32',
   antiScreenshotOther: platform === 'win32',
   keepalive: platform === 'win32' || platform === 'darwin',
+  stayAwake: platform === 'win32' || platform === 'darwin', // 系统级防休眠（SetThreadExecutionState / IOKit 断言）
+  synthInput: platform === 'win32' || platform === 'darwin', // 真实输入心跳（SendInput / 声明用户活动）
 };
 
 const native = Object.assign({}, impl, { capabilities });

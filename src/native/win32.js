@@ -214,5 +214,44 @@ function reload(pid, dllPath) {
   } finally { if (thread !== 0n) CloseHandle(thread); CloseHandle(h); }
 }
 
-  return { listWindows, isWindow, wiggle, inject, eject, reload, moduleLoaded };
+// ---------------- 防休眠①：系统级电源断言（SetThreadExecutionState）----------------
+// 在主进程主线程上调用：ES_CONTINUOUS 让断言持续到复位/线程退出（主线程随应用常驻）。
+// on=true 声明“系统+显示器持续需要”，阻止整机睡眠/息屏；on=false 仅 ES_CONTINUOUS 撤销。
+// 不改电源计划、不动真实光标。注意：挡不住用户主动睡眠/锁屏（系统设计如此）。
+const SetThreadExecutionState = kernel32.func('SetThreadExecutionState', 'uint32', ['uint32']);
+const ES_CONTINUOUS = 0x80000000, ES_SYSTEM_REQUIRED = 0x00000001, ES_DISPLAY_REQUIRED = 0x00000002;
+function systemAwake(on) {
+  const flags = (on ? (ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED) : ES_CONTINUOUS) >>> 0;
+  const prev = SetThreadExecutionState(flags);
+  return { ok: prev !== 0, on: !!on };
+}
+
+// ---------------- 防休眠②：真实输入心跳（SendInput）----------------
+// PostMessage(WM_MOUSEMOVE) 不经内核 Raw Input Thread，更新不了全局“最后输入时间”，多数防空闲无效；
+// SendInput 走真实输入路径：更新 GetLastInputInfo、击退屏保/睡眠、被低级钩子/原始输入感知。
+// 代价是全局（key 模式发 F15 不动光标；mouse 模式 +1/-1 净零微移）。x64 下 INPUT 结构 = 40 字节。
+const SendInput = user32.func('SendInput', 'uint32', ['uint32', 'void*', 'int32']);
+const INPUT_SIZE = 40, INPUT_MOUSE = 0, INPUT_KEYBOARD = 1;
+const MOUSEEVENTF_MOVE = 0x0001, KEYEVENTF_KEYUP = 0x0002, VK_F15 = 0x7E; // F13~F24：键盘上没有，程序忽略但照样重置空闲
+function mouseMoveInput(dx) {                 // INPUT.type@0；union@8：MOUSEINPUT dx@8 dy@12 dwFlags@20
+  const b = Buffer.alloc(INPUT_SIZE);
+  b.writeUInt32LE(INPUT_MOUSE, 0); b.writeInt32LE(dx, 8); b.writeUInt32LE(MOUSEEVENTF_MOVE, 20);
+  return b;
+}
+function keyInput(vk, up) {                   // union@8：KEYBDINPUT wVk@8 dwFlags@12
+  const b = Buffer.alloc(INPUT_SIZE);
+  b.writeUInt32LE(INPUT_KEYBOARD, 0); b.writeUInt16LE(vk, 8); b.writeUInt32LE(up ? KEYEVENTF_KEYUP : 0, 12);
+  return b;
+}
+function synthInput(opts) {
+  const mode = (opts && opts.mode) || 'key';  // 'key' | 'mouse' | 'both'
+  const parts = [];
+  if (mode === 'mouse' || mode === 'both') parts.push(mouseMoveInput(1), mouseMoveInput(-1));
+  if (mode === 'key' || mode === 'both') { const vk = (opts && opts.vk) || VK_F15; parts.push(keyInput(vk, false), keyInput(vk, true)); }
+  if (!parts.length) return { ok: false, msg: '无输入' };
+  const sent = SendInput(parts.length, Buffer.concat(parts), INPUT_SIZE);
+  return { ok: sent === parts.length, sent, mode };
+}
+
+  return { listWindows, isWindow, wiggle, inject, eject, reload, moduleLoaded, systemAwake, synthInput };
 }

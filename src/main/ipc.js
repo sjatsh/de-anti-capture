@@ -47,6 +47,8 @@ export function registerIpc() {
   ipcMain.handle('list-windows', guard((e, all) => native.listWindows({ all })));
   ipcMain.handle('is-window', guard((e, hwnd) => native.isWindow(hwnd)));
   ipcMain.handle('wiggle', guard((e, hwnd, pid) => native.wiggle(hwnd, pid)));
+  ipcMain.handle('system-awake', guard((e, on) => native.systemAwake(on))); // 系统级防休眠开/关
+  ipcMain.handle('synth-input', guard((e, opts) => native.synthInput(opts))); // 真实输入心跳（单次）
   ipcMain.handle('native-info', () => native.capabilities);
   ipcMain.handle('inject', guard((e, pid, dll) => native.inject(pid, dll || getDefaultDll())));
   ipcMain.handle('module-loaded', guard((e, pid, name) => native.moduleLoaded(pid, name || 'KeepAliveHook.dll')));

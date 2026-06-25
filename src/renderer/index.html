@@ -142,6 +142,28 @@
       <span class="hint">每 <input id="autoSec" type="number" min="2" max="60" value="5" class="mini-num" /> 秒巡检 · 带注入规则的目标若掉了/换了 PID 自动重新注入并应用规则</span>
     </div>
 
+    <div class="kbar">
+      <svg class="ico kbar-ico"><use href="#i-zap"/></svg>
+      <label class="switch" title="系统级防休眠：调用 SetThreadExecutionState 声明“系统+显示器持续需要”，阻止整机睡眠/息屏（不改电源计划、不动你的真实光标）。这是防整机休眠的标准做法；但挡不住你手动睡眠/锁屏。">
+        <input type="checkbox" id="stayAwake" />
+        <span class="track"><span class="thumb"></span></span>
+        <span class="switch-label">系统级防休眠（不息屏/不睡眠）</span>
+      </label>
+      <span class="kbar-sep"></span>
+      <label class="switch" title="真实输入心跳：用 SendInput 周期性发一次真实的无害输入（默认 F15 按键，不移动光标），更新系统全局“最后输入时间”，重置所有程序的空闲并击退屏保/睡眠。对用 GetLastInputInfo / 低级钩子 / 原始输入判活的程序有效——这正是 PostMessage 假鼠标做不到的。">
+        <input type="checkbox" id="synthBeat" />
+        <span class="track"><span class="thumb"></span></span>
+        <span class="switch-label">真实输入心跳</span>
+      </label>
+      <span class="hint">每 <input id="synthSec" type="number" min="5" max="300" value="50" class="mini-num" /> 秒 ·
+        <select id="synthMode" class="mini-sel">
+          <option value="key">F15 按键（不动光标）</option>
+          <option value="mouse">鼠标微移 ±1px</option>
+          <option value="both">按键 + 微移</option>
+        </select>
+      </span>
+    </div>
+
     <div class="logbar">
       <button class="logtoggle" id="logToggle" title="展开/收起日志面板"><svg class="ico chev"><use href="#i-chevron"/></svg></button>
       <div class="logtabs">

@@ -22,6 +22,10 @@ export function persist() {
     kaEnabled: $('kaToggle').checked,
     autoInject: $('autoInject').checked,
     autoSec: parseInt($('autoSec').value, 10) || 5,
+    stayAwake: $('stayAwake').checked,
+    synthBeat: $('synthBeat').checked,
+    synthSec: parseInt($('synthSec').value, 10) || 50,
+    synthMode: $('synthMode').value || 'key',
     targets: state.targets.map((t) => ({ process: t.process, title: t.title, pid: t.pid, rules: t.rules })),
   });
 }

@@ -147,5 +147,35 @@ const eject = injectUnsupported;
 const reload = injectUnsupported;
 function moduleLoaded() { return false; }
 
-  return { listWindows, isWindow, wiggle, inject, eject, reload, moduleLoaded };
+// 防休眠①：IOKit 电源断言保持系统/显示器不睡（best-effort，未在 Mac 实测，失败静默降级）。
+const IOPMAssertionCreateWithName = IOKit.func('IOPMAssertionCreateWithName', 'int', ['void*', 'uint32', 'void*', 'void*']);
+const IOPMAssertionRelease = IOKit.func('IOPMAssertionRelease', 'int', ['uint32']);
+const kIOPMAssertionLevelOn = 255;
+let _awakeId = 0;
+function systemAwake(on) {
+  try {
+    if (on) {
+      if (_awakeId) return { ok: true, on: true };
+      const idBuf = Buffer.alloc(4);
+      const type = CFStringCreateWithCString(null, 'PreventUserIdleDisplaySleep', kCFStringEncodingUTF8);
+      const name = CFStringCreateWithCString(null, 'de-anti-capture stay awake', kCFStringEncodingUTF8);
+      const r = IOPMAssertionCreateWithName(type, kIOPMAssertionLevelOn, name, idBuf);
+      CFRelease(type); CFRelease(name);
+      if (r === 0) { _awakeId = idBuf.readUInt32LE(0); return { ok: true, on: true }; }
+      return { ok: false, msg: 'IOPMAssertionCreateWithName 失败 ' + r };
+    }
+    if (_awakeId) { IOPMAssertionRelease(_awakeId); _awakeId = 0; }
+    return { ok: true, on: false };
+  } catch (e) { return { ok: false, msg: String((e && e.message) || e) }; }
+}
+// 防休眠②：声明用户活动即可重置系统全局空闲（无需权限；macOS 无 SendInput 等价物，用这个最稳）。
+function synthInput() {
+  try {
+    const idBuf = Buffer.alloc(4);
+    IOPMAssertionDeclareUserActivity('de-anti-capture beat', kIOPMUserActiveLocal, idBuf);
+    return { ok: true, mode: 'useractivity' };
+  } catch (e) { return { ok: false, msg: String((e && e.message) || e) }; }
+}
+
+  return { listWindows, isWindow, wiggle, inject, eject, reload, moduleLoaded, systemAwake, synthInput };
 }

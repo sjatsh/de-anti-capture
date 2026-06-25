@@ -10,6 +10,7 @@ import { setupEditorWiring } from './ui/editor.js';
 import { doInject, doEject, doApply } from './features/inject.js';
 import { saveConfig, persist } from './features/persistence.js';
 import { startKeepAlive, startAutoInject } from './features/timers.js';
+import { startAntiSleep, applyStayAwake } from './features/antisleep.js';
 import { initHookLog, initLogTabs } from './features/hooklog.js';
 import { initTitlebar, initLogToggle, initResizers } from './ui/chrome.js';
 
@@ -62,6 +63,11 @@ async function init() {
     $('kaToggle').checked = saved.kaEnabled !== false;
     $('autoInject').checked = !!saved.autoInject;
     if (saved.autoSec) $('autoSec').value = saved.autoSec;
+    $('stayAwake').checked = !!saved.stayAwake;
+    $('synthBeat').checked = !!saved.synthBeat;
+    if (saved.synthSec) $('synthSec').value = saved.synthSec;
+    if (saved.synthMode) $('synthMode').value = saved.synthMode;
+    if (saved.stayAwake) applyStayAwake(); // 恢复时若之前开启，补发系统级防休眠断言
     state.targets = (saved.targets || []).map((t) => ({
       uid: newUid(),
       hwnd: null,
@@ -93,4 +99,5 @@ initLogTabs();
 initHookLog();
 startKeepAlive();
 startAutoInject();
+startAntiSleep();
 init();
