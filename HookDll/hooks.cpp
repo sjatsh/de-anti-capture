@@ -37,6 +37,55 @@ static void LogLine(const char* fmt, ...)
     fputc('\n', f); fclose(f);
 }
 
+// ---------------- 命中计数 + STAT 上报（无独立线程：在被钩函数自身线程里节流上报，规避卸载竞争）----------------
+#define MAX_REG 128
+struct RegEntry { std::string kind, dll, func; };
+static RegEntry        g_reg[MAX_REG];
+static volatile LONG64 g_hits[MAX_REG]   = { 0 };   // 每条已安装规则的命中次数
+static LONG64          g_repSnap[MAX_REG] = { 0 };  // 上次上报的快照，仅在变化时再写 STAT
+static int             g_regN = 0;
+static int             g_idxIdle = -1, g_idxFg = -1, g_idxUncap = -1;   // C 钩子各自的计数槽
+static DWORD           g_lastRep = 0;
+static volatile LONG   g_repBusy = 0;
+
+// 节流上报：每≥1.2s，把有变化的计数写成 STAT 行；GUI 解析后在规则卡上显示命中数。
+static void MaybeReport()
+{
+    DWORD now = GetTickCount();
+    if (now - g_lastRep < 1200) return;
+    if (InterlockedExchange(&g_repBusy, 1)) return;     // 防重入（多线程同时命中）
+    g_lastRep = now;
+    for (int i = 0; i < g_regN; i++) {
+        LONG64 h = g_hits[i];
+        if (h != g_repSnap[i]) {
+            g_repSnap[i] = h;
+            LogLine("STAT kind=%s dll=%s func=%s hits=%lld",
+                    g_reg[i].kind.c_str(),
+                    g_reg[i].dll.empty()  ? "-" : g_reg[i].dll.c_str(),
+                    g_reg[i].func.empty() ? "-" : g_reg[i].func.c_str(),
+                    (long long)h);
+        }
+    }
+    InterlockedExchange(&g_repBusy, 0);
+}
+
+// 供 C 钩子与生成的 stub 在入口调用：累加命中 + 尝试上报。idx 越界(未注册)则只上报不计数。
+static void OnHookHit(unsigned idx)
+{
+    if (idx < (unsigned)g_regN) InterlockedIncrement64(&g_hits[idx]);
+    MaybeReport();
+}
+
+// 给一条规则分配计数槽，返回 idx（超上限返回 -1，表示不计数）
+static int RegisterRule(const std::string& kind, const std::string& dll, const std::string& func)
+{
+    if (g_regN >= MAX_REG) return -1;
+    int i = g_regN++;
+    g_reg[i].kind = kind; g_reg[i].dll = dll; g_reg[i].func = func;
+    g_hits[i] = 0; g_repSnap[i] = 0;
+    return i;
+}
+
 // ---------------- 数据结构 ----------------
 struct Rule {
     unsigned long pid;
@@ -65,6 +114,7 @@ static GetLastInputInfo_t g_realGLII = nullptr;
 
 static BOOL WINAPI Hooked_GetLastInputInfo(PLASTINPUTINFO plii)
 {
+    OnHookHit((unsigned)g_idxIdle);
     if (plii && plii->cbSize >= sizeof(LASTINPUTINFO)) { plii->dwTime = GetTickCount(); return TRUE; }
     if (g_realGLII) return g_realGLII(plii);
     return FALSE;
@@ -94,6 +144,7 @@ static HWND FindOwnMainWindow()
 }
 static HWND WINAPI Hooked_GetForegroundWindow(void)
 {
+    OnHookHit((unsigned)g_idxFg);
     HWND real = g_realGFW ? g_realGFW() : nullptr;
     DWORD pid = 0; if (real) GetWindowThreadProcessId(real, &pid);
     if (pid == GetCurrentProcessId()) return real;       // 本来就是自己在前台 -> 行为不变
@@ -110,6 +161,7 @@ static SetWDA_t g_realSWDA = nullptr;
 // hook：不管 app 传什么，强制 affinity=WDA_NONE(0) 再调原函数 —— 防止它以后又重设保护
 static BOOL WINAPI Hooked_SetWindowDisplayAffinity(HWND h, DWORD aff)
 {
+    OnHookHit((unsigned)g_idxUncap);
     wchar_t cls[64] = { 0 };
     if (GetClassNameW(h, cls, 64) && _wcsicmp(cls, L"ClipSDK") == 0)   // 无影安全剪贴板叠加窗：放行原值，别动它(否则变白色遮挡)
         return g_realSWDA ? g_realSWDA(h, aff) : TRUE;
@@ -147,10 +199,30 @@ static bool WriteSlot(void** slot, void* value)   // SEH 保护写指针
 
 // 按规则生成一段小代码(stub)覆盖到 IAT 槽位：
 //   [可选] 改入参 rcx/rdx/r8/r9  ->  调原函数(尾跳，保留栈参) / 不调直接返回mock / 调后改返回值
-static void* MakeStub(const Rule& r, void* original)
+static void* MakeStub(const Rule& r, void* original, int idx)
 {
-    unsigned char b[160]; size_t n = 0;
+    unsigned char b[200]; size_t n = 0;
     #define PUTB(x) (b[n++] = (unsigned char)(x))
+    // —— 命中计数前导：保存 rcx/rdx/r8/r9 → 调 OnHookHit(idx) → 还原 ——
+    // 不破坏入参寄存器，rsp 精确还原后续逻辑照常；运行在目标自身线程，无独立线程→卸载安全。
+    if (idx >= 0)
+    {
+        PUTB(0x51);                                        // push rcx
+        PUTB(0x52);                                        // push rdx
+        PUTB(0x41); PUTB(0x50);                            // push r8
+        PUTB(0x41); PUTB(0x51);                            // push r9
+        PUTB(0x48); PUTB(0x83); PUTB(0xEC); PUTB(0x28);    // sub rsp, 28h (影子空间+16 对齐)
+        unsigned int id = (unsigned int)idx;
+        PUTB(0xB9); memcpy(b + n, &id, 4); n += 4;         // mov ecx, idx
+        unsigned long long fn = reinterpret_cast<unsigned long long>(&OnHookHit);
+        PUTB(0x48); PUTB(0xB8); memcpy(b + n, &fn, 8); n += 8; // mov rax, &OnHookHit
+        PUTB(0xFF); PUTB(0xD0);                            // call rax
+        PUTB(0x48); PUTB(0x83); PUTB(0xC4); PUTB(0x28);    // add rsp, 28h
+        PUTB(0x41); PUTB(0x59);                            // pop r9
+        PUTB(0x41); PUTB(0x58);                            // pop r8
+        PUTB(0x5A);                                        // pop rdx
+        PUTB(0x59);                                        // pop rcx
+    }
     if (r.argSet[0]) { PUTB(0x48); PUTB(0xB9); memcpy(b + n, &r.arg[0], 8); n += 8; } // mov rcx, imm
     if (r.argSet[1]) { PUTB(0x48); PUTB(0xBA); memcpy(b + n, &r.arg[1], 8); n += 8; } // mov rdx, imm
     if (r.argSet[2]) { PUTB(0x49); PUTB(0xB8); memcpy(b + n, &r.arg[2], 8); n += 8; } // mov r8,  imm
@@ -325,10 +397,13 @@ static void ApplyRuleAllModules(const Rule& r, void* target, bool fgScope)
 
 static void RestoreAll()
 {
+    g_regN = 0; g_idxIdle = g_idxFg = g_idxUncap = -1;   // 先停计数(让 OnHookHit 短路)，再拆钩子/释放 stub
     for (auto& p : g_patches) WriteSlot(p.slot, p.original);
     g_patches.clear();
     for (void* t : g_thunks) VirtualFree(t, 0, MEM_RELEASE);
     g_thunks.clear();
+    for (int i = 0; i < MAX_REG; i++) { g_hits[i] = 0; g_repSnap[i] = 0; }
+    g_lastRep = 0;
 }
 
 static void InstallFromConfig()
@@ -348,6 +423,37 @@ static void InstallFromConfig()
     if (!g_realSWDA)
         g_realSWDA = (SetWDA_t)GetProcAddress(GetModuleHandleW(L"user32.dll"), "SetWindowDisplayAffinity");
 
+    // logall 观察模式：对一组“检测类”API 装透传计数钩子(kind=obs，不改行为只统计调用次数)，
+    // 看目标到底在探什么、探多频。已被用户规则覆盖的(dll!func)跳过，避免与 fg/hook 冲突。
+    bool logAll = false;
+    for (auto& r : rules) if (r.enabled && r.kind == "logall") { logAll = true; break; }
+    if (logAll)
+    {
+        auto covered = [&](const char* dll, const char* fn) {
+            for (auto& r : rules) {
+                if (r.kind == "logall" || r.kind == "obs") continue;
+                if (_stricmp(r.dll.c_str(), dll) == 0 && _stricmp(r.func.c_str(), fn) == 0) return true;
+            }
+            return false;
+        };
+        static const char* OBS[][2] = {
+            { "user32.dll",   "GetForegroundWindow" },
+            { "user32.dll",   "GetLastInputInfo" },
+            { "user32.dll",   "GetActiveWindow" },
+            { "user32.dll",   "GetWindowThreadProcessId" },
+            { "kernel32.dll", "IsDebuggerPresent" },
+            { "kernel32.dll", "CheckRemoteDebuggerPresent" },
+        };
+        for (auto& o : OBS) {
+            if (covered(o[0], o[1])) continue;
+            Rule r; r.pid = 0; r.kind = "obs"; r.enabled = true; r.dll = o[0]; r.func = o[1];
+            r.value = 0; r.callOriginal = true; r.retSet = false; r.retValue = 0;
+            for (int i = 0; i < 4; ++i) { r.argSet[i] = false; r.arg[i] = 0; }
+            rules.push_back(r);
+        }
+        LogLine("logall: 观察模式开启，对检测类 API 装透传计数钩子");
+    }
+
     DWORD self = GetCurrentProcessId();
     for (auto& r : rules)
     {
@@ -356,19 +462,22 @@ static void InstallFromConfig()
         void* target = nullptr;
         if (r.kind == "idle")
         {
+            g_idxIdle = RegisterRule(r.kind, r.dll, r.func);
             target = (void*)&Hooked_GetLastInputInfo;
         }
         else if (r.kind == "fg")
         {
+            g_idxFg = RegisterRule(r.kind, r.dll, r.func);
             target = (void*)&Hooked_GetForegroundWindow;
         }
         else if (r.kind == "uncapture")
         {
+            g_idxUncap = RegisterRule(r.kind, r.dll, r.func);
             int stripped = StripCaptureProtection();                 // 主动剥离已有黑屏保护
             LogLine("uncapture: 主动剥离了 %d 个顶层窗口的截屏保护", stripped);
             target = (void*)&Hooked_SetWindowDisplayAffinity;        // 再 hook 住，防止重设
         }
-        else if (r.kind == "hook" || r.kind == "ret")
+        else if (r.kind == "hook" || r.kind == "ret" || r.kind == "obs")
         {
             void* original = nullptr;
             if (r.callOriginal)   // 需要调原函数 -> 先拿到真实地址嵌进 stub
@@ -378,8 +487,10 @@ static void InstallFromConfig()
                 if (m) original = (void*)GetProcAddress(m, r.func.c_str());
                 if (!original) { LogLine("hook: 无法解析 %s!%s, 跳过", r.dll.c_str(), r.func.c_str()); continue; }
             }
-            void* stub = MakeStub(r, original);
+            int idx = RegisterRule(r.kind, r.dll, r.func);
+            void* stub = MakeStub(r, original, idx);
             if (stub) { g_thunks.push_back(stub); target = stub; }
+            else if (idx >= 0) g_regN--;                              // 生成失败回滚计数槽
         }
         if (!target) continue;
 

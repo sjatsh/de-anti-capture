@@ -18,14 +18,15 @@ function scheduleRuleRefresh() {
   }, 350);
 }
 
-// state.hookStats[pid] = { installs:{ 'kind|dll|func': slots }, active, strips, ts }
+// state.hookStats[pid] = { installs:{ 'kind|dll|func': slots }, hits:{ 'kind|dll|func': n }, active, strips, ts }
 function applyStat(ev) {
   if (ev.pid == null) return false;
   let s = state.hookStats[ev.pid];
-  if (!s) s = state.hookStats[ev.pid] = { installs: {}, active: false, strips: 0, ts: ev.ts };
+  if (!s) s = state.hookStats[ev.pid] = { installs: {}, hits: {}, active: false, strips: 0, ts: ev.ts };
   s.ts = ev.ts || s.ts;
   if (ev.type === 'start' || ev.type === 'reload') {
     s.installs = {};
+    s.hits = {};
     s.active = true;
     s.strips = 0;
     return true;
@@ -35,6 +36,10 @@ function applyStat(ev) {
     s.active = true;
     return true;
   }
+  if (ev.type === 'stat') {
+    s.hits[ruleHookKey(ev.kind, ev.dll, ev.func)] = ev.hits;
+    return true;
+  }
   if (ev.type === 'uncapture') {
     s.strips = ev.strips;
     return true;
@@ -42,6 +47,7 @@ function applyStat(ev) {
   if (ev.type === 'stop') {
     s.active = false;
     s.installs = {};
+    s.hits = {};
     return true;
   }
   return false;
@@ -58,7 +64,9 @@ function appendRow(ev) {
   ts.textContent = ev.ts || '';
   const msg = document.createElement('span');
   msg.className = 'msg';
-  msg.textContent = (ev.pid != null ? `[${ev.pid}] ` : '') + (ev.body != null ? ev.body : ev.raw);
+  let body = ev.body != null ? ev.body : ev.raw;
+  if (ev.type === 'stat' && ev.kind === 'obs') body = `观察 ${ev.dll}!${ev.func} · 被调用 ${ev.hits} 次`;
+  msg.textContent = (ev.pid != null ? `[${ev.pid}] ` : '') + body;
   line.appendChild(ts);
   line.appendChild(msg);
   view.appendChild(line);
@@ -69,15 +77,18 @@ function appendRow(ev) {
 
 function ingest(lines, isSeed) {
   let statsChanged = false,
-    n = 0;
+    shown = 0;
   for (const raw of lines) {
     const ev = parseHookLine(raw);
-    appendRow(ev);
+    // 规则 STAT 行只更新规则卡命中数(不刷屏)；观察模式 obs 行没有规则卡，进实时面板作“全量日志”
+    if (ev.type !== 'stat' || ev.kind === 'obs') {
+      appendRow(ev);
+      shown++;
+    }
     if (applyStat(ev)) statsChanged = true;
-    n++;
   }
-  if (!isSeed && n && state.hookView !== 'hook') {
-    state.hookUnread += n;
+  if (!isSeed && shown && state.hookView !== 'hook') {
+    state.hookUnread += shown;
     updateHookBadge();
   }
   if (statsChanged) scheduleRuleRefresh();

@@ -12,11 +12,15 @@ function hookBadge(t, r) {
   if (!t || r.kind === 'keepalive') return '';
   const s = state.hookStats[t.pid];
   if (!s || !s.active) return '';
-  const slots = s.installs[ruleHookKey(r.kind, r.dll, r.func)];
+  const key = ruleHookKey(r.kind, r.dll, r.func);
+  const slots = s.installs[key];
   if (slots == null) return ''; // 已注入但这条没有安装记录（可能还没点“应用规则”）
-  return slots > 0
-    ? `<span class="hookstat on" title="该进程内已在 ${slots} 个模块的导入表挂上此钩子">✓ 已挂 ${slots}</span>`
-    : `<span class="hookstat off" title="已注入但 0 处命中：目标没在导入表里静态调用此函数(IAT 盲区)，或 DLL/函数名不符">✗ 0 处</span>`;
+  if (slots <= 0)
+    return `<span class="hookstat off" title="已注入但 0 处命中：目标没在导入表里静态调用此函数(IAT 盲区)，或 DLL/函数名不符">✗ 0 处</span>`;
+  const hits = (s.hits && s.hits[key]) || 0;
+  const hitTxt = hits > 0 ? ` · 命中 ${hits > 99999 ? Math.floor(hits / 1000) + 'k' : hits}` : '';
+  const title = hits > 0 ? `已在 ${slots} 个模块挂钩；被调用 ${hits} 次（实时计数）` : `已在 ${slots} 个模块的导入表挂上此钩子，尚未被调用`;
+  return `<span class="hookstat on" title="${title}">✓ 已挂 ${slots}${hitTxt}</span>`;
 }
 
 export function renderRules() {

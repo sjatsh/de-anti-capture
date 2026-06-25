@@ -23,6 +23,12 @@ export function parseHookLine(line) {
   } else if ((r = /^InstallFromConfig done:\s+(\d+)\s+slot/.exec(body))) {
     ev.type = 'done';
     ev.slots = parseInt(r[1], 10);
+  } else if ((r = /^STAT kind=(\w+) dll=(\S+) func=(\S+) hits=(\d+)/.exec(body))) {
+    ev.type = 'stat';
+    ev.kind = r[1];
+    ev.dll = r[2] === '-' ? '' : r[2];
+    ev.func = r[3] === '-' ? '' : r[3];
+    ev.hits = parseInt(r[4], 10);
   } else if ((r = /^uncapture:.*?(\d+)\s*个/.exec(body))) {
     ev.type = 'uncapture';
     ev.strips = parseInt(r[1], 10);
@@ -48,5 +54,6 @@ export function lineClass(ev) {
   if (ev.type === 'start' || ev.type === 'reload' || ev.type === 'done') return 'info';
   if (ev.type === 'stop') return 'warn';
   if (ev.type === 'uncapture') return 'ok';
+  if (ev.type === 'stat') return 'obs'; // 观察模式计数行（仅 obs 会进面板）
   return '';
 }

@@ -312,6 +312,7 @@ input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); c
 .logpanel .logline.err .msg { color: var(--danger); }
 .logpanel .logline.info .msg { color: #8aa0ff; }
 .logpanel .logline.warn .msg { color: #ffc26b; }
+.logpanel .logline.obs .msg { color: #6fb3c9; }
 .logview.hidden { display: none; }
 
 /* 底部日志「活动 / 拦截」标签切换 */
