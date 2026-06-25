@@ -125,9 +125,7 @@
   <footer class="footer">
     <div class="dllrow">
       <span class="lbl"><svg class="ico"><use href="#i-folder"/></svg>拦截 DLL</span>
-      <span class="dll-badge" id="dllBadge" title="已内置拦截 DLL，无需手动选择">内置 ✓</span>
-      <input id="dllPath" class="dll" readonly title="内置拦截 DLL 路径（注入 / idle / hook 用）" />
-      <button id="browse" class="btn ghost small" title="可选：改用自定义 DLL（一般无需）">自定义…</button>
+      <span class="dll-badge" title="拦截 DLL 已内置并随程序一起打包，注入时自动使用，无需手动选择">内置 ✓</span>
       <span class="spacer"></span>
       <button id="inject" class="btn primary"><svg class="ico"><use href="#i-inject"/></svg>注入</button>
       <button id="eject" class="btn ghost"><svg class="ico"><use href="#i-eject"/></svg>卸载</button>

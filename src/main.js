@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const native = require('./native');
@@ -133,12 +133,4 @@ ipcMain.handle('open-hook-log', () => {
     shell.openPath(log);
     return { ok: true, path: log };
   } catch (err) { return { ok: false, msg: String(err && err.message || err) }; }
-});
-
-ipcMain.handle('browse-dll', async () => {
-  const r = await dialog.showOpenDialog(mainWindow, {
-    filters: [{ name: 'DLL', extensions: ['dll'] }, { name: '所有文件', extensions: ['*'] }],
-    properties: ['openFile']
-  });
-  return r.canceled ? null : r.filePaths[0];
 });

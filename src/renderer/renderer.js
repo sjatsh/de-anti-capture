@@ -3,7 +3,8 @@
 const $ = (id) => document.getElementById(id);
 const api = window.api;
 
-const state = { allWindows: [], targets: [], selWin: null, selTarget: null, selRule: -1, dllPath: '', defDll: '', showAll: false, logAll: false, funcs: [], _restoring: false };
+// dllPath 永远指向内置（随程序打包）的拦截 DLL，由主进程 resolveDll() 解析，界面不暴露任何路径设置。
+const state = { allWindows: [], targets: [], selWin: null, selTarget: null, selRule: -1, dllPath: '', showAll: false, logAll: false, funcs: [], _restoring: false };
 let _uid = 0;
 const newUid = () => 'u' + (++_uid);
 
@@ -437,7 +438,6 @@ async function saveConfig() {
 function persist() {
   if (state._restoring) return;
   api.saveState({
-    dllPath: state.dllPath,
     showAll: state.showAll,
     logAll: state.logAll,
     kaEnabled: $('kaToggle').checked,
@@ -543,15 +543,6 @@ $('delRule').onclick = delRule;
 $('inject').onclick = doInject;
 $('eject').onclick = doEject;
 $('apply').onclick = doApply;
-// DLL 来源徽标：用内置 DLL 显示「内置」，选了自定义则显示「自定义」
-function updateDllBadge() {
-  const badge = $('dllBadge'); if (!badge) return;
-  const builtin = !state.dllPath || state.dllPath === state.defDll;
-  badge.textContent = builtin ? '内置 ✓' : '自定义';
-  badge.classList.toggle('custom', !builtin);
-  badge.title = builtin ? '已内置拦截 DLL，无需手动选择' : '当前使用自定义 DLL：' + state.dllPath;
-}
-$('browse').onclick = async () => { const p = await api.browseDll(); if (p) { state.dllPath = p; $('dllPath').value = p; updateDllBadge(); saveConfig(); status('已切换为自定义 DLL：' + p); } };
 
 // 全量 API 透传日志开关：写入配置后，已注入的目标点“应用”即可热生效
 $('logAll').addEventListener('change', async () => {
@@ -638,10 +629,8 @@ $('logToggle').onclick = () => setLogOpen(!$('logPanel').classList.contains('ope
 // init
 (async () => {
   state._restoring = true;
-  const def = await api.defaultDll();
+  state.dllPath = await api.defaultDll();   // 内置拦截 DLL，随程序打包；界面不提供路径设置
   const saved = await api.loadState();
-  state.defDll = def;
-  state.dllPath = (saved && saved.dllPath) || def;
   if (saved) {
     state.showAll = !!saved.showAll;
     state.logAll = !!saved.logAll;
@@ -655,8 +644,6 @@ $('logToggle').onclick = () => setLogOpen(!$('logPanel').classList.contains('ope
       rules: (t.rules || []).map((r) => (r.kind === 'keepalive' ? { ...r, _cd: r.intervalSec } : { ...r }))
     }));
   }
-  $('dllPath').value = state.dllPath;
-  updateDllBadge();
   renderTargets(); renderRules();
   state._restoring = false;
   await refreshWindows();   // 枚举窗口 + 重绑目标

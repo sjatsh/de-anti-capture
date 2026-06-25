@@ -15,7 +15,6 @@ contextBridge.exposeInMainWorld('api', {
   saveConfig: (dll, targets, opts) => ipcRenderer.invoke('save-config', dll, targets, opts),
   loadState: () => ipcRenderer.invoke('load-state'),
   saveState: (s) => ipcRenderer.invoke('save-state', s),
-  browseDll: () => ipcRenderer.invoke('browse-dll'),
   openHookLog: () => ipcRenderer.invoke('open-hook-log'),
 
   // 自绘标题栏的窗口控制
