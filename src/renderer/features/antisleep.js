@@ -24,9 +24,11 @@ let _pulseCd = 0,
 function pulseSec() {
   return Math.min(900, Math.max(30, parseInt($('pulseSec').value, 10) || 600));
 }
-// 脉冲对象 = 勾了「保活」规则、且在线有 hwnd 的目标窗口
+// 脉冲对象 = 所有在线(未离线、有 hwnd)的目标窗口。
+// 你把窗口加进目标列表，就是想让它(里面的远端云电脑)保持活动——不再额外要求加某种「保活」规则
+// （早期要求 kind==='keepalive' 容易踩坑：把规则改成别的类型/名字仍叫“保活”，脉冲就找不到目标了）。
 function pulseTargets() {
-  return state.targets.filter((t) => !t.offline && t.hwnd && (t.rules || []).some((r) => r.kind === 'keepalive' && r.enabled));
+  return state.targets.filter((t) => !t.offline && t.hwnd);
 }
 // 一轮脉冲：记下当前前台 → 逐个把目标切前台发真实鼠标微移 →（可选最小化）→ 切回原前台。
 // manual=true 时（点「立即脉冲」）输出更详细的诊断到活动日志，方便确认每一步是否生效。_pulseBusy 防重入。
@@ -38,7 +40,7 @@ async function doPulse(manual) {
   const targets = pulseTargets();
   if (!targets.length) {
     // 没目标时静默(定时)/明确报错(手动)，避免“感觉没生效”却不知为何
-    if (manual) status('前台脉冲：没有“勾了保活规则”的在线目标 —— 先把无影/串流窗口加入目标，再给它加一条「保活」规则', 'err');
+    if (manual) status('前台脉冲：当前没有在线目标窗口 —— 先在顶部选中无影/串流窗口点「加入目标」', 'err');
     return;
   }
   _pulseBusy = true;
@@ -125,14 +127,14 @@ export function startAntiSleep() {
     persist();
   });
 
-  // 前台脉冲：开启即先脉冲一拍验证；脉冲对象取“勾了保活规则的目标”
+  // 前台脉冲：开启即先脉冲一拍验证；脉冲对象 = 所有在线目标窗口
   $('pulseMode').addEventListener('change', () => {
     if ($('pulseMode').checked) {
       const n = pulseTargets().length;
       _pulseCd = 0; // 立即来一拍
       const tail = $('pulseMin').checked ? '喂完即最小化回任务栏' : '随后切回原窗口';
-      if (n) status(`已开启前台脉冲：每 ${pulseSec()} 秒把 ${n} 个保活目标瞬时切前台喂一次真实鼠标（给窗口里的远端云电脑续空闲），${tail}`, 'ok');
-      else status('已开启前台脉冲，但当前没有“勾了保活规则”的在线目标——请先给无影/串流窗口加一条“保活”规则', 'err');
+      if (n) status(`已开启前台脉冲：每 ${pulseSec()} 秒把 ${n} 个在线目标瞬时切前台喂一次真实鼠标（给窗口里的远端云电脑续空闲），${tail}`, 'ok');
+      else status('已开启前台脉冲，但当前没有在线目标窗口——请先在顶部选中无影/串流窗口点「加入目标」', 'err');
     } else {
       status('已关闭前台脉冲');
     }
