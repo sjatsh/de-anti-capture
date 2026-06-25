@@ -28,21 +28,32 @@ function pulseSec() {
 function pulseTargets() {
   return state.targets.filter((t) => !t.offline && t.hwnd && (t.rules || []).some((r) => r.kind === 'keepalive' && r.enabled));
 }
-// 一轮脉冲：记下当前前台 → 逐个把目标切前台发真实鼠标微移 → 切回原前台。_pulseBusy 防重入。
-async function doPulse() {
-  if (_pulseBusy) return;
+// 一轮脉冲：记下当前前台 → 逐个把目标切前台发真实鼠标微移 →（可选最小化）→ 切回原前台。
+// manual=true 时（点「立即脉冲」）输出更详细的诊断到活动日志，方便确认每一步是否生效。_pulseBusy 防重入。
+async function doPulse(manual) {
+  if (_pulseBusy) {
+    if (manual) status('前台脉冲正忙，稍候…', 'err');
+    return;
+  }
   const targets = pulseTargets();
-  if (!targets.length) return;
+  if (!targets.length) {
+    // 没目标时静默(定时)/明确报错(手动)，避免“感觉没生效”却不知为何
+    if (manual) status('前台脉冲：没有“勾了保活规则”的在线目标 —— 先把无影/串流窗口加入目标，再给它加一条「保活」规则', 'err');
+    return;
+  }
   _pulseBusy = true;
   try {
     const prev = await api.getForeground(); // 脉冲前的前台窗口，喂完切回它
     const prevIsTarget = targets.some((t) => String(t.hwnd) === prev);
     const minimize = $('pulseMin').checked; // 喂完即最小化：不让目标一直占着桌面
-    let pulsed = 0;
+    let pulsed = 0,
+      failed = 0;
     for (const t of targets) {
       const hwnd = String(t.hwnd);
+      const label = `${t.process}（hwnd ${hwnd}）`;
       if (prev === hwnd) {
         await api.synthInput({ mode: 'mouse' }); // 目标已在前台(你正在用)：直接发，零闪烁、不最小化
+        status(`前台脉冲：${label} 已在前台，直接喂真实鼠标（零闪烁、不最小化）`, 'ok');
         pulsed++;
         continue;
       }
@@ -51,12 +62,21 @@ async function doPulse() {
         await sleep(140); // 等前台切换稳定、Qt 处理激活后采集循环复活
         await api.synthInput({ mode: 'mouse' });
         await sleep(40);
-        if (minimize) await api.minimizeWindow(hwnd); // 瞬时弹起→喂输入→立刻最小化回任务栏
+        let minTxt = '';
+        if (minimize) {
+          const m = await api.minimizeWindow(hwnd); // 瞬时弹起→喂输入→立刻最小化回任务栏
+          minTxt = m && m.ok ? ' · 最小化✓' : ' · 最小化✗';
+        }
+        status(`前台脉冲：${label} 切前台✓ · 喂真实鼠标✓${minTxt}`, 'ok');
         pulsed++;
+      } else {
+        // 切前台失败：通常是系统“前台锁”拦了 SetForegroundWindow，或窗口已不在
+        status(`前台脉冲：${label} 切前台失败（被系统前台锁拦截或窗口已失效）${r && r.msg ? ' — ' + r.msg : ''}`, 'err');
+        failed++;
       }
     }
     if (prev && prev !== '0' && !prevIsTarget) await api.focusWindow(prev); // 切回原前台（最小化已让焦点回落，这里再确保确定性）
-    if (pulsed) status(`前台脉冲：已向 ${pulsed} 个窗口喂真实鼠标输入（重置其中远端云电脑的空闲）`, 'ok');
+    if (manual) status(`前台脉冲：本轮完成 — 成功 ${pulsed} 个${failed ? `，失败 ${failed} 个` : ''}`, failed ? 'err' : 'ok');
   } catch (e) {
     status('前台脉冲异常：' + ((e && e.message) || e), 'err');
   } finally {
@@ -120,4 +140,5 @@ export function startAntiSleep() {
   });
   $('pulseSec').addEventListener('change', persist);
   $('pulseMin').addEventListener('change', persist);
+  $('pulseNow').addEventListener('click', () => doPulse(true)); // 手动立即脉冲一次（带详细诊断日志）
 }
