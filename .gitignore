@@ -28,3 +28,12 @@ Desktop.ini
 .vs/
 *.user
 *.suo
+.idea/
+.vscode/*
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# ── 构建 / 打包输出 ──
+.vite/
+out/
+dist/

@@ -1,25 +1,36 @@
 {
-  "name": "window-keepalive",
+  "name": "de-anti-capture",
   "productName": "窗口保活与API拦截工具",
   "version": "2.0.0",
-  "description": "Window keep-alive and API interception tool (Electron)",
+  "description": "窗口保活与 Win32 API 拦截工具（Electron + koffi + 注入式 Hook DLL）",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
     "icon": "electron tools/render-icon.js",
     "native-test": "node test/native-test.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "dist": "electron-builder --win",
     "pack": "electron-builder --win --dir"
   },
-  "author": "",
+  "author": "sjatsh <admin@sjis.me>",
   "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/sjatsh/de-anti-capture.git" },
+  "homepage": "https://github.com/sjatsh/de-anti-capture#readme",
+  "bugs": { "url": "https://github.com/sjatsh/de-anti-capture/issues" },
   "dependencies": {
     "electron": "^40.10.3",
     "koffi": "^3.0.2"
   },
   "devDependencies": {
-    "electron-builder": "^25.1.8"
+    "@eslint/js": "^9.16.0",
+    "electron-builder": "^25.1.8",
+    "eslint": "^9.16.0",
+    "globals": "^15.13.0",
+    "prettier": "^3.4.2"
   },
   "build": {
     "appId": "me.sjis.windowkeepalive",
