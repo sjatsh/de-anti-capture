@@ -437,12 +437,23 @@ static void InstallFromConfig()
             return false;
         };
         static const char* OBS[][2] = {
+            // —— 活跃/检测类：看目标在探什么 ——
             { "user32.dll",   "GetForegroundWindow" },
             { "user32.dll",   "GetLastInputInfo" },
             { "user32.dll",   "GetActiveWindow" },
             { "user32.dll",   "GetWindowThreadProcessId" },
             { "kernel32.dll", "IsDebuggerPresent" },
             { "kernel32.dll", "CheckRemoteDebuggerPresent" },
+            // —— 输入读取路径探测：注入目标后聚焦它、真实动鼠标/敲键盘，看下面哪些命中，
+            //    即可判定它从哪拿输入(决定该用消息注入 PostMessage 还是真实输入 SendInput) ——
+            { "user32.dll",   "RegisterRawInputDevices" },  // 启动时注册原始输入设备 → 走 raw input 的强信号
+            { "user32.dll",   "GetRawInputData" },          // 每个 WM_INPUT 后取数据 → 正在用 raw input
+            { "user32.dll",   "GetRawInputBuffer" },        // raw input 批量读取
+            { "user32.dll",   "GetAsyncKeyState" },         // 轮询按键(异步键态)
+            { "user32.dll",   "GetKeyState" },              // 轮询按键(消息队列键态)
+            { "user32.dll",   "GetKeyboardState" },         // 轮询整张键盘
+            { "user32.dll",   "GetCursorPos" },             // 轮询光标位置
+            { "user32.dll",   "SetWindowsHookExW" },        // 低级钩子 WH_KEYBOARD_LL/WH_MOUSE_LL
         };
         for (auto& o : OBS) {
             if (covered(o[0], o[1])) continue;
@@ -451,7 +462,7 @@ static void InstallFromConfig()
             for (int i = 0; i < 4; ++i) { r.argSet[i] = false; r.arg[i] = 0; }
             rules.push_back(r);
         }
-        LogLine("logall: 观察模式开启，对检测类 API 装透传计数钩子");
+        LogLine("logall: 观察模式开启，对检测类 + 输入读取类 API 装透传计数钩子");
     }
 
     DWORD self = GetCurrentProcessId();
