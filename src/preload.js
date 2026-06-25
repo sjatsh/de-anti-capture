@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('api', {
   openHookLog: () => ipcRenderer.invoke('open-hook-log'),
   readHookLog: () => ipcRenderer.invoke('hook-log-read'), // 订阅时取最近缓冲做回放
   onHookLog: (cb) => ipcRenderer.on('hook-log-line', (_e, payload) => cb(payload)), // 实时增量行
+  verifyRule: (rule) => ipcRenderer.invoke('verify-rule', rule), // 一键验证：注入前后对比
 
   // 自绘标题栏的窗口控制
   winMinimize: () => ipcRenderer.send('win-minimize'),

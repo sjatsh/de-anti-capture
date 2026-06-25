@@ -8,6 +8,7 @@ import { getDefaultDll } from './dll.js';
 import { loadState, saveState } from './state.js';
 import { rulesFileFor, hookLogFile } from './paths.js';
 import { readHookLogBuffer } from './logtail.js';
+import { verifyRule } from './verify.js';
 
 // 把抛错的处理器统一收敛成 {ok:false,msg}，避免渲染层 invoke 直接 reject。
 const guard =
@@ -68,6 +69,9 @@ export function registerIpc() {
 
   // ---- 拦截日志：实时 tail 的初始回放（订阅时拿最近缓冲）----
   ipcMain.handle('hook-log-read', () => readHookLogBuffer());
+
+  // ---- 一键验证：起探针注入该规则并对比注入前后观测 ----
+  ipcMain.handle('verify-rule', (e, rule) => verifyRule(rule));
 
   // ---- 打开拦截日志（%TEMP%\KeepAliveHook.log）----
   ipcMain.handle('open-hook-log', () => {

@@ -335,6 +335,18 @@ input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); c
 .badge.fg { background: #1f2d52; color: #8aa0ff; }
 .badge.uncapture { background: #10303a; color: #5ad1f0; }
 
+/* 规则卡「验证」按钮 + 结果行 */
+.rule-verify { -webkit-app-region: no-drag; flex: 0 0 auto; align-self: flex-start; margin-top: 1px;
+  width: 26px; height: 26px; display: grid; place-items: center; border-radius: 7px;
+  background: transparent; border: 1px solid var(--line-soft); color: var(--muted); cursor: pointer; }
+.rule-verify:hover { color: var(--text); border-color: var(--line-strong); background: var(--bg-2); }
+.rule-verify .ico { width: 14px; height: 14px; }
+.verify-result { margin-top: 6px; font-size: 11px; padding: 4px 9px; border-radius: 6px; line-height: 1.55; word-break: break-all; }
+.verify-result.run { color: var(--muted); background: var(--bg-2); }
+.verify-result.pass { color: var(--ok); background: rgba(52,224,192,.12); }
+.verify-result.fail { color: var(--danger); background: rgba(255,111,125,.12); }
+.verify-result.neutral { color: #8aa0ff; background: rgba(138,160,255,.10); }
+
 /* ============================================================
    规则编辑弹窗
    ============================================================ */

@@ -1,10 +1,41 @@
 import { state } from '../state.js';
+import { api } from '../lib/api.js';
 import { $, esc, status } from '../lib/dom.js';
 import { kindLabel, ruleDetail } from '../lib/format.js';
 import { ruleHookKey } from '../lib/hookparse.js';
 import { curTarget, renderTargets } from './targets.js';
 import { openEditor } from './editor.js';
 import { saveConfig } from '../features/persistence.js';
+
+// 清掉某目标下所有规则的验证结果（增删改规则会让 idx 错位，直接清空该目标的）
+function clearVerify(uid) {
+  for (const k of Object.keys(state.verifyResults)) if (k.startsWith(uid + ':')) delete state.verifyResults[k];
+}
+
+// 一键验证：起探针注入这一条规则，对比注入前后观测值，结果存到 state.verifyResults 并刷新卡片。
+async function doVerify(t, idx, r) {
+  const key = t.uid + ':' + idx;
+  state.verifyResults[key] = { cls: 'run', text: '验证中…（起探针 → 注入该规则 → 对比注入前后）' };
+  renderRules();
+  status(`验证「${r.name}」中…`);
+  let res;
+  try {
+    res = await api.verifyRule(r);
+  } catch (e) {
+    res = { ok: false, msg: (e && e.message) || String(e) };
+  }
+  if (!res || !res.ok) {
+    state.verifyResults[key] = { cls: 'fail', text: '验证失败：' + ((res && res.msg) || '未知错误') };
+    status('验证失败：' + ((res && res.msg) || ''), 'err');
+  } else {
+    const mark = res.pass === true ? '✓ 通过' : res.pass === false ? '✗ 未生效' : '○ 不确定';
+    const cls = res.pass === true ? 'pass' : res.pass === false ? 'fail' : 'neutral';
+    const ba = res.before !== '-' || res.after !== '-' ? ` （注入前 ${res.before} → 注入后 ${res.after}）` : '';
+    state.verifyResults[key] = { cls, text: `${mark} · ${res.detail}${ba}` };
+    status(`验证「${r.name}」：${mark} — ${res.detail}`, res.pass === false ? 'err' : 'ok');
+  }
+  renderRules();
+}
 
 // 规则卡“挂钩状态”徽章：来自实时解析的拦截日志（features/hooklog.js 写入 state.hookStats）。
 // 已挂 N 处 = 该进程内 N 个模块的导入表被打了钩；0 处 = 已注入但没命中(IAT 盲区/名字不符)。
@@ -55,11 +86,23 @@ export function renderRules() {
     const main = document.createElement('div');
     main.style.flex = '1';
     main.style.minWidth = '0';
+    const vr = state.verifyResults[t.uid + ':' + idx];
+    const vrHtml = vr ? `<div class="verify-result ${vr.cls}">${esc(vr.text)}</div>` : '';
     main.innerHTML =
       `<div class="t1"><span class="badge ${r.kind}">${kindLabel(r.kind)}</span><span class="name">${esc(r.name)}</span>${hookBadge(t, r)}</div>` +
-      `<div class="rule-detail">${esc(ruleDetail(r))}</div>`;
+      `<div class="rule-detail">${esc(ruleDetail(r))}</div>` +
+      vrHtml;
+    const vbtn = document.createElement('button');
+    vbtn.className = 'rule-verify';
+    vbtn.title = '验证：起探针、只注入这一条规则，对比注入前后观测值，判定是否真的生效';
+    vbtn.innerHTML = '<svg class="ico"><use href="#i-shield"/></svg>';
+    vbtn.onclick = (e) => {
+      e.stopPropagation();
+      doVerify(t, idx, r);
+    };
     card.appendChild(cb);
     card.appendChild(main);
+    card.appendChild(vbtn);
     card.onclick = () => {
       state.selRule = idx;
       renderRules();
@@ -78,6 +121,7 @@ export async function addRule() {
   const r = await openEditor(null);
   if (!r) return;
   t.rules.push(r);
+  clearVerify(t.uid);
   state.selRule = t.rules.length - 1;
   renderTargets();
   renderRules();
@@ -94,6 +138,7 @@ export async function editRule() {
   const r = await openEditor(t.rules[state.selRule]);
   if (!r) return;
   t.rules[state.selRule] = r;
+  clearVerify(t.uid);
   renderRules();
   saveConfig();
   status('已修改规则：' + r.name);
@@ -106,6 +151,7 @@ export function delRule() {
     return;
   }
   t.rules.splice(state.selRule, 1);
+  clearVerify(t.uid);
   state.selRule = -1;
   renderTargets();
   renderRules();

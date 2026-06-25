@@ -12,7 +12,7 @@ export function resolveDll() {
   const dst = path.join(app.getPath('userData'), 'bin');
   try {
     fs.mkdirSync(dst, { recursive: true });
-    for (const f of ['KeepAliveHook.dll', 'inject_target.exe']) {
+    for (const f of ['KeepAliveHook.dll', 'inject_target.exe', 'probe.exe']) {
       const s = path.join(src, f),
         d = path.join(dst, f);
       if (fs.existsSync(s) && (!fs.existsSync(d) || fs.statSync(s).mtimeMs > fs.statSync(d).mtimeMs)) {
