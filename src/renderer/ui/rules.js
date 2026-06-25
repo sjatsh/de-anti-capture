@@ -1,9 +1,23 @@
 import { state } from '../state.js';
 import { $, esc, status } from '../lib/dom.js';
 import { kindLabel, ruleDetail } from '../lib/format.js';
+import { ruleHookKey } from '../lib/hookparse.js';
 import { curTarget, renderTargets } from './targets.js';
 import { openEditor } from './editor.js';
 import { saveConfig } from '../features/persistence.js';
+
+// 规则卡“挂钩状态”徽章：来自实时解析的拦截日志（features/hooklog.js 写入 state.hookStats）。
+// 已挂 N 处 = 该进程内 N 个模块的导入表被打了钩；0 处 = 已注入但没命中(IAT 盲区/名字不符)。
+function hookBadge(t, r) {
+  if (!t || r.kind === 'keepalive') return '';
+  const s = state.hookStats[t.pid];
+  if (!s || !s.active) return '';
+  const slots = s.installs[ruleHookKey(r.kind, r.dll, r.func)];
+  if (slots == null) return ''; // 已注入但这条没有安装记录（可能还没点“应用规则”）
+  return slots > 0
+    ? `<span class="hookstat on" title="该进程内已在 ${slots} 个模块的导入表挂上此钩子">✓ 已挂 ${slots}</span>`
+    : `<span class="hookstat off" title="已注入但 0 处命中：目标没在导入表里静态调用此函数(IAT 盲区)，或 DLL/函数名不符">✗ 0 处</span>`;
+}
 
 export function renderRules() {
   const list = $('ruleList');
@@ -38,7 +52,7 @@ export function renderRules() {
     main.style.flex = '1';
     main.style.minWidth = '0';
     main.innerHTML =
-      `<div class="t1"><span class="badge ${r.kind}">${kindLabel(r.kind)}</span><span class="name">${esc(r.name)}</span></div>` +
+      `<div class="t1"><span class="badge ${r.kind}">${kindLabel(r.kind)}</span><span class="name">${esc(r.name)}</span>${hookBadge(t, r)}</div>` +
       `<div class="rule-detail">${esc(ruleDetail(r))}</div>`;
     card.appendChild(cb);
     card.appendChild(main);

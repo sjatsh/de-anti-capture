@@ -143,20 +143,23 @@
     </div>
 
     <div class="logbar">
-      <button class="logtoggle" id="logToggle" title="展开/收起活动日志">
-        <svg class="ico chev"><use href="#i-chevron"/></svg>
-        <svg class="ico"><use href="#i-activity"/></svg>
-        <span>活动日志</span>
-      </button>
+      <button class="logtoggle" id="logToggle" title="展开/收起日志面板"><svg class="ico chev"><use href="#i-chevron"/></svg></button>
+      <div class="logtabs">
+        <button class="logtab active" id="tabActivity" data-view="activity"><svg class="ico"><use href="#i-activity"/></svg>活动日志</button>
+        <button class="logtab" id="tabHook" data-view="hook" title="实时跟踪被注入 DLL 写出的拦截日志(%TEMP%\KeepAliveHook.log)：StartHooking / 每条规则挂了几个 IAT 槽位 / ReloadHooks / 卸载"><svg class="ico"><use href="#i-eye"/></svg>拦截日志<span class="pill hookbadge hidden" id="hookCount">0</span></button>
+      </div>
       <div class="status" id="status">就绪</div>
       <label class="switch sm" title="对常用 Win32 API 装观察钩子：透传真实调用，并把【哪个窗口 · 方法作用 · 入参 · 返回值】写入详细日志(%TEMP%\KeepAliveHook.log)。需先对目标注入，再点“应用规则”生效。">
         <input type="checkbox" id="logAll" />
         <span class="track"><span class="thumb"></span></span>
         <span class="switch-label">全量 API 日志(透传)</span>
       </label>
-      <button id="openLog" class="btn ghost small" title="打开拦截日志文件(%TEMP%\KeepAliveHook.log)"><svg class="ico"><use href="#i-activity"/></svg>打开日志</button>
+      <button id="openLog" class="btn ghost small" title="用系统默认程序打开拦截日志文件(%TEMP%\KeepAliveHook.log)"><svg class="ico"><use href="#i-folder"/></svg>打开文件</button>
     </div>
-    <div class="logpanel" id="logPanel"></div>
+    <div class="logpanel" id="logPanel">
+      <div class="logview" id="logViewActivity"></div>
+      <div class="logview hidden" id="logViewHook"></div>
+    </div>
   </footer>
 
   <!-- ===== 规则编辑弹窗 ===== -->

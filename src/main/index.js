@@ -3,12 +3,14 @@
 import { app, BrowserWindow } from 'electron';
 import { resolveDll, setDefaultDll } from './dll.js';
 import { registerIpc } from './ipc.js';
-import { createWindow } from './window.js';
+import { createWindow, getMainWindow } from './window.js';
+import { startHookLogTail } from './logtail.js';
 
 app.whenReady().then(() => {
   setDefaultDll(resolveDll()); // 打包后从 resources 复制 DLL 到可写目录，并记录默认路径
   registerIpc(); // 在 default-dll 取值之后注册，确保返回的是解析后的路径
   createWindow();
+  startHookLogTail(getMainWindow); // 实时 tail %TEMP%\KeepAliveHook.log 推送到渲染层
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

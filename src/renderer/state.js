@@ -11,6 +11,9 @@ export const state = {
   logAll: false,
   funcs: [],
   _restoring: false,
+  hookStats: {}, // 解析拦截日志得到的每 pid 挂钩状态：{ [pid]: { installs:{'kind|dll|func':slots}, active, strips } }
+  hookView: 'activity', // 底部日志面板当前标签：activity | hook
+  hookUnread: 0, // 「拦截日志」标签未读新行计数
 };
 
 let _uid = 0;

@@ -10,6 +10,7 @@ import { setupEditorWiring } from './ui/editor.js';
 import { doInject, doEject, doApply } from './features/inject.js';
 import { saveConfig, persist } from './features/persistence.js';
 import { startKeepAlive, startAutoInject } from './features/timers.js';
+import { initHookLog, initLogTabs } from './features/hooklog.js';
 import { initTitlebar, initLogToggle, initResizers } from './ui/chrome.js';
 
 // ---------------- 主区按钮接线 ----------------
@@ -88,6 +89,8 @@ setupEditorWiring();
 initTitlebar();
 initLogToggle();
 initResizers();
+initLogTabs();
+initHookLog();
 startKeepAlive();
 startAutoInject();
 init();
