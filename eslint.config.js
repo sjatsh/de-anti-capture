@@ -1,5 +1,5 @@
 'use strict';
-// ESLint 9 flat config。主进程/工具/测试为 CommonJS(Node)，渲染层为 ESM(浏览器)。
+// ESLint 9 flat config。主进程/渲染层为 ESM（Vite 打包）；tools/test/根配置为 CommonJS(Node)。
 // 规则偏宽松：以发现真实问题为主，风格交给 Prettier，避免对既有密集代码大量误报。
 const js = require('@eslint/js');
 const globals = require('globals');
@@ -8,7 +8,7 @@ module.exports = [
   { ignores: ['node_modules/**', '.vite/**', 'out/**', 'dist/**', 'bin/**', 'assets/**'] },
   js.configs.recommended,
 
-  // Node 侧：主进程、preload、config、native、shared、工具、测试、根配置
+  // 主进程侧（ESM，由 Vite 打包）：main / preload / config / native / shared
   {
     files: [
       'src/main.js',
@@ -17,25 +17,31 @@ module.exports = [
       'src/config.js',
       'src/native/**/*.js',
       'src/shared/**/*.js',
-      'tools/**/*.js',
-      'test/**/*.js',
-      '*.config.js',
-      'forge.config.js',
     ],
     languageOptions: {
       ecmaVersion: 2023,
-      sourceType: 'commonjs',
+      sourceType: 'module',
       globals: { ...globals.node },
     },
   },
 
-  // 渲染层：浏览器 ESM
+  // 渲染层（ESM，浏览器）
   {
     files: ['src/renderer/**/*.js'],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: 'module',
       globals: { ...globals.browser },
+    },
+  },
+
+  // 纯 CJS 脚本与根配置：tools / test / forge.config.js / eslint.config.js
+  {
+    files: ['tools/**/*.js', 'test/**/*.js', '*.config.js'],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'commonjs',
+      globals: { ...globals.node },
     },
   },
 

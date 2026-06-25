@@ -1,5 +1,3 @@
 # 拦截规则配置(Electron 自动生成)  格式: pid|kind|enabled|dll|func|spec|name
 # kind: idle=空闲归零  hook=通用拦截(改入参/改返回/完全mock)  logall=全量API透传日志 ; pid=0 表示全局
 0|logall|1|||
-65232|uncapture|1|user32.dll|SetWindowDisplayAffinity||保活 每30秒
-65232|fg|1|user32.dll|GetForegroundWindow||user32.dll!GetForegroundWindow

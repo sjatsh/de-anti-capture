@@ -1,6 +1,5 @@
-'use strict';
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 // 解析 PE 导出表：返回 { names: [...], rva: { name: funcRVA } }
 // 用于：① 规则编辑器函数名自动补全  ② 取 ReloadHooks 的 RVA 做热重载
@@ -42,7 +41,6 @@ function parse(filePath) {
 
     const expOff = rvaToOff(expRva);
     if (expOff < 0) return out;
-    const ordinalBase = b.readUInt32LE(expOff + 16);
     const numberOfNames = b.readUInt32LE(expOff + 24);
     const funcsOff = rvaToOff(b.readUInt32LE(expOff + 28));
     const namesOff = rvaToOff(b.readUInt32LE(expOff + 32));
@@ -82,4 +80,4 @@ function getExports(dllName) {
   return res;
 }
 
-module.exports = { parse, getExports };
+export { parse, getExports };

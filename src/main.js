@@ -1,18 +1,19 @@
-'use strict';
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
-const path = require('path');
-const fs = require('fs');
-const native = require('./native');
-const pe = require('./native/peexports');
-const config = require('./config');
+/* global MAIN_WINDOW_VITE_DEV_SERVER_URL, MAIN_WINDOW_VITE_NAME */
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import path from 'path';
+import fs from 'fs';
+import native from './native/index.js';
+import * as pe from './native/peexports.js';
+import * as config from './config.js';
 
 let mainWindow;
-const ICON = path.join(__dirname, '..', 'assets', 'icon.png');
+// 资源根：dev 为项目根（Vite define 注入 APP_ROOT）。打包后该路径不存在则窗口回退使用 exe 图标。
+const ICON = path.join(process.env.APP_ROOT || __dirname, 'assets', 'icon.png');
 
 // 解析内置拦截 DLL 路径：开发时用项目 bin/；打包后 DLL 在只读的 resources/bin/，
 // 复制到可写的 userData/bin/（DLL 要在同目录写规则文件 KeepAliveHook.rules.txt）。
 function resolveDll() {
-  if (!app.isPackaged) return path.resolve(__dirname, '..', 'bin', 'KeepAliveHook.dll');
+  if (!app.isPackaged) return path.resolve(process.env.APP_ROOT || path.join(__dirname, '..'), 'bin', 'KeepAliveHook.dll');
   const src = path.join(process.resourcesPath, 'bin');
   const dst = path.join(app.getPath('userData'), 'bin');
   try {
@@ -24,7 +25,7 @@ function resolveDll() {
   } catch (e) { /* 复制失败则回退 resources 路径 */ return path.join(src, 'KeepAliveHook.dll'); }
   return path.join(dst, 'KeepAliveHook.dll');
 }
-let DEFAULT_DLL = path.resolve(__dirname, '..', 'bin', 'KeepAliveHook.dll');
+let DEFAULT_DLL = path.resolve(process.env.APP_ROOT || path.join(__dirname, '..'), 'bin', 'KeepAliveHook.dll');
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -43,7 +44,12 @@ function createWindow() {
     }
   });
   mainWindow.removeMenu();
-  mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  // Forge + Vite：dev 用插件注入的开发服务器 URL，prod 加载构建产物 .vite/renderer/main_window/index.html
+  if (typeof MAIN_WINDOW_VITE_DEV_SERVER_URL !== 'undefined' && MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+  } else {
+    mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
+  }
   mainWindow.once('ready-to-show', () => mainWindow.show());
 
   // 把最大化状态同步给渲染层，让按钮切换“最大化/还原”图标
@@ -80,7 +86,7 @@ function setupHotReload() {
 app.whenReady().then(() => {
   DEFAULT_DLL = resolveDll();    // 打包后从 resources 复制到可写目录
   createWindow();
-  setupHotReload();
+  // setupHotReload();           // Phase 2 删除：改用 Forge + Vite 自带 HMR / 主进程重启
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

@@ -3,12 +3,14 @@
   "productName": "窗口保活与API拦截工具",
   "version": "2.0.0",
   "description": "窗口保活与 Win32 API 拦截工具（Electron + koffi + 注入式 Hook DLL）",
-  "main": "src/main.js",
+  "main": ".vite/build/main.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron .",
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
     "icon": "electron tools/render-icon.js",
     "native-test": "node test/native-test.js",
+    "build:dll": "cmd /c build.bat",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
@@ -22,15 +24,20 @@
   "homepage": "https://github.com/sjatsh/de-anti-capture#readme",
   "bugs": { "url": "https://github.com/sjatsh/de-anti-capture/issues" },
   "dependencies": {
-    "electron": "^40.10.3",
     "koffi": "^3.0.2"
   },
   "devDependencies": {
+    "@electron-forge/cli": "^7.6.0",
+    "@electron-forge/maker-squirrel": "^7.6.0",
+    "@electron-forge/maker-zip": "^7.6.0",
+    "@electron-forge/plugin-vite": "^7.6.0",
     "@eslint/js": "^9.16.0",
+    "electron": "^40.10.3",
     "electron-builder": "^25.1.8",
     "eslint": "^9.16.0",
     "globals": "^15.13.0",
-    "prettier": "^3.4.2"
+    "prettier": "^3.4.2",
+    "vite": "^5.4.0"
   },
   "build": {
     "appId": "me.sjis.windowkeepalive",

@@ -1,9 +1,11 @@
-'use strict';
-const koffi = require('koffi');
-const fs = require('fs');
-const path = require('path');
-const pe = require('./peexports');
+// win32 原生实现工厂（koffi）。包成 create()：让 native/index.js 能同时静态 import 本模块与 darwin.js，
+// 而 koffi.load 只在所选平台调用 create() 时执行——避免「导入即触发」跨平台框架加载失败。
+import koffi from 'koffi';
+import fs from 'fs';
+import path from 'path';
+import * as pe from './peexports.js';
 
+export function create() {
 const user32 = koffi.load('user32.dll');
 const kernel32 = koffi.load('kernel32.dll');
 
@@ -212,4 +214,5 @@ function reload(pid, dllPath) {
   } finally { if (thread !== 0n) CloseHandle(thread); CloseHandle(h); }
 }
 
-module.exports = { listWindows, isWindow, wiggle, inject, eject, reload, moduleLoaded };
+  return { listWindows, isWindow, wiggle, inject, eject, reload, moduleLoaded };
+}

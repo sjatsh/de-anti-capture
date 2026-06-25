@@ -1,5 +1,4 @@
-'use strict';
-const fs = require('fs');
+import fs from 'fs';
 
 // hook 规则 -> spec: call=1;a0=..;a2=..;ret=..   (idle 无 spec)
 function buildSpec(r) {
@@ -26,4 +25,4 @@ function save(cfgPath, targets, opts) {
   fs.writeFileSync(cfgPath, s, 'utf8'); // Node utf8 = 无 BOM
 }
 
-module.exports = { save, buildSpec };
+export { save, buildSpec };

@@ -1,4 +1,3 @@
-'use strict';
 // macOS 原生实现（非注入子集）。与 win32.js 暴露同一组接口，但注入类能力在 macOS 上
 // 受 SIP + 强化运行时 + 库验证封死（见 docs/macos-port-research.md），inject/eject/reload/
 // moduleLoaded 以 stub 返回明确错误。
@@ -10,8 +9,10 @@
 //
 // ⚠️ 本文件无法在 Windows 上测试，需在 Mac 上 `npm install`(编译 koffi) 后实测调试。
 //    若 listWindows 返回空，最可能是 kCGWindow* 键名假设不成立——见下方 cfKey() 注释。
-const koffi = require('koffi');
+import koffi from 'koffi';
 
+// 平台原生实现工厂（见 win32.js 同名说明）：darwin 的 koffi.load 只在 create() 被调用时执行。
+export function create() {
 const FW = '/System/Library/Frameworks';
 const CoreFoundation = koffi.load(`${FW}/CoreFoundation.framework/CoreFoundation`);
 const CoreGraphics = koffi.load(`${FW}/CoreGraphics.framework/CoreGraphics`);
@@ -146,4 +147,5 @@ const eject = injectUnsupported;
 const reload = injectUnsupported;
 function moduleLoaded() { return false; }
 
-module.exports = { listWindows, isWindow, wiggle, inject, eject, reload, moduleLoaded };
+  return { listWindows, isWindow, wiggle, inject, eject, reload, moduleLoaded };
+}
