@@ -51,6 +51,7 @@ export function registerIpc() {
   ipcMain.handle('synth-input', guard((e, opts) => native.synthInput(opts))); // 真实输入心跳（单次）
   ipcMain.handle('get-foreground', guard(() => native.getForeground())); // 当前前台窗口 hwnd（脉冲前记录）
   ipcMain.handle('focus-window', guard((e, hwnd) => native.focusWindow(hwnd))); // 瞬时切前台（脉冲喂输入）
+  ipcMain.handle('minimize-window', guard((e, hwnd) => native.minimizeWindow(hwnd))); // 喂完最小化回任务栏
   ipcMain.handle('native-info', () => native.capabilities);
   ipcMain.handle('inject', guard((e, pid, dll) => native.inject(pid, dll || getDefaultDll())));
   ipcMain.handle('module-loaded', guard((e, pid, name) => native.moduleLoaded(pid, name || 'KeepAliveHook.dll')));

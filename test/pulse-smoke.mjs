@@ -26,9 +26,14 @@ console.log('切换后前台 hwnd =', fg2, '与靶子一致?', fg2 === cand.hwnd
 const si = n.synthInput({ mode: 'mouse' });
 console.log('synthInput(mouse) =>', si);
 
+// 喂完即最小化（回任务栏）；最小化会把前台交给 z 序下一个窗口
+const mn = n.minimizeWindow(cand.hwnd);
+console.log('minimizeWindow =>', mn, '最小化后前台 hwnd =', n.getForeground(), '已不再是靶子?', n.getForeground() !== cand.hwnd);
+n.focusWindow(cand.hwnd); // 还原借用的窗口，别把用户的窗口留在最小化状态
+
 // 切回原前台
 if (fg && fg !== '0') {
   const rr = n.focusWindow(fg);
   console.log('切回原前台 =>', rr, '现前台 =', n.getForeground());
 }
-console.log('OK：原生层未崩，前台切换链路通。');
+console.log('OK：原生层未崩，前台切换 + 最小化链路通。');

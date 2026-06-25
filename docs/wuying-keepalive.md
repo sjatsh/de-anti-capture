@@ -93,6 +93,8 @@ B 的安全杠杆（伪装焦点 API / 注入激活消息）已全部失败。�
 
 工具已内置「**前台脉冲**」（host 侧，无需注入）。原理：每隔 N 秒，**记下当前前台窗口 → 把目标窗口瞬时切到前台 → `SendInput` 发一次真实鼠标微移（±1px 净零，被 `GetCursorPos` 读到并转发到远端）→ 立刻切回原前台窗口**。焦点只闪几十毫秒（默认 140ms 等 Qt 激活稳定 + 40ms）。
 
+默认还开了「**喂完即最小化**」：目标从任务栏**瞬时弹起 → 喂输入 → 立刻最小化**回任务栏，不让它一直占着桌面（`ShowWindow(SW_MINIMIZE)`，最小化会把焦点交回 z 序下一个窗口）。若目标本来就在前台（你正在用它），则只发输入、**不**最小化、零闪烁。关掉这个开关则回到「喂完切回原窗口、目标留在桌面」。
+
 **实现链路**（每一环都已实测）：
 
 | 环节 | 在哪 | 验证 |
@@ -100,6 +102,7 @@ B 的安全杠杆（伪装焦点 API / 注入激活消息）已全部失败。�
 | 记录当前前台 | `win32.js getForeground()`（`GetForegroundWindow`） | smoke 测试返回正确 hwnd |
 | 瞬时切前台 | `win32.js focusWindow()`：`AttachThreadInput` 绕前台锁 + `BringWindowToTop` + `SetForegroundWindow`，最小化时先 `ShowWindow(SW_RESTORE)` | smoke 测试 `{ok:true,focused:true}`，前台确实切换 |
 | 喂真实鼠标 | `synthInput({mode:'mouse'})`（`SendInput` ±1px） | 实测 stream_viewer 前台时 `GetCursorPos` 持续被读到（§4） |
+| 喂完最小化 | `win32.js minimizeWindow()`（`ShowWindow(SW_MINIMIZE)`，可关） | smoke 测试最小化后前台不再是靶子 |
 | 切回原窗口 | 再 `focusWindow(prev)` | smoke 测试前台正确还原 |
 | 定时驱动 | `renderer/features/antisleep.js doPulse()`，1s 计时器按 `pulseSec` 触发，`_pulseBusy` 防重入 | — |
 
@@ -109,6 +112,7 @@ B 的安全杠杆（伪装焦点 API / 注入激活消息）已全部失败。�
 2. 给该目标加一条「**保活**」规则（前台脉冲的对象 = 勾了「保活」规则的在线目标）。
 3. 勾选底部「**前台脉冲（给窗口内远端喂输入·防云电脑休眠）**」。间隔默认 **600 秒**：无影 15 分钟无操作才休眠，设 600~780 秒即可，一小时只闪四五下。
 4. 开启后会立刻脉冲一拍验证；之后每 N 秒自动一次。**目标已在前台时直接发输入、零闪烁**。
+5. 「**喂完即最小化**」默认开：脉冲是「任务栏弹起 → 喂输入 → 立刻最小化」，目标不留在桌面；想让它喂完留在桌面就关掉。
 
 **与其它开关的关系：**
 - 开启前台脉冲后，「保活定时器」对这些目标的 `PostMessage` wiggle 会**自动跳过**（对远端无效，见 `timers.js`）。

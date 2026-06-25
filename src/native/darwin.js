@@ -181,6 +181,7 @@ function synthInput() {
 // 主战场是 Windows 无影客户端）。返回明确的 unsupported，渲染层据此不启用脉冲模式。
 function getForeground() { return '0'; }
 function focusWindow() { return { ok: false, focused: false, msg: 'macOS 暂不支持前台脉冲' }; }
+function minimizeWindow() { return { ok: false, msg: 'macOS 暂不支持前台脉冲' }; }
 
-  return { listWindows, isWindow, wiggle, inject, eject, reload, moduleLoaded, systemAwake, synthInput, getForeground, focusWindow };
+  return { listWindows, isWindow, wiggle, inject, eject, reload, moduleLoaded, systemAwake, synthInput, getForeground, focusWindow, minimizeWindow };
 }

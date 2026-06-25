@@ -288,6 +288,15 @@ function focusWindow(hwndStr) {
     if (attached) AttachThreadInput(myTid, tgtTid, false);
   }
 }
+// 把窗口最小化回任务栏（脉冲喂完输入后用：瞬时切前台→发输入→立刻最小化，不留在桌面）。
+// SW_MINIMIZE=6：最小化并把焦点交给 z 序下一个窗口（自然落回脉冲前的前台）。
+// 注意：ShowWindow 的返回值是“此前是否可见”，不是成败；改用 IsIconic 作为最小化成功的真实后置条件。
+function minimizeWindow(hwndStr) {
+  const h = BigInt(hwndStr);
+  if (!IsWindow(h)) return { ok: false };
+  ShowWindow(h, 6);
+  return { ok: !!IsIconic(h) };
+}
 
-  return { listWindows, isWindow, wiggle, inject, eject, reload, moduleLoaded, systemAwake, synthInput, getForeground, focusWindow };
+  return { listWindows, isWindow, wiggle, inject, eject, reload, moduleLoaded, systemAwake, synthInput, getForeground, focusWindow, minimizeWindow };
 }

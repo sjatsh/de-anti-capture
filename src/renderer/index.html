@@ -172,6 +172,11 @@
         <span class="switch-label">前台脉冲（给窗口内远端喂输入·防云电脑休眠）</span>
       </label>
       <span class="hint">每 <input id="pulseSec" type="number" min="30" max="900" value="600" class="mini-num" /> 秒切前台喂一次真实鼠标</span>
+      <label class="switch sm" title="喂完输入后立刻把目标窗口最小化回任务栏，不让它一直占着桌面。开启后每次脉冲是“从任务栏瞬时弹起→喂真实鼠标→立刻最小化”；目标若本来就在前台(你正在用它)则只发输入、不最小化。">
+        <input type="checkbox" id="pulseMin" checked />
+        <span class="track"><span class="thumb"></span></span>
+        <span class="switch-label">喂完即最小化</span>
+      </label>
     </div>
 
     <div class="logbar">

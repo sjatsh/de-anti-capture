@@ -37,11 +37,12 @@ async function doPulse() {
   try {
     const prev = await api.getForeground(); // 脉冲前的前台窗口，喂完切回它
     const prevIsTarget = targets.some((t) => String(t.hwnd) === prev);
+    const minimize = $('pulseMin').checked; // 喂完即最小化：不让目标一直占着桌面
     let pulsed = 0;
     for (const t of targets) {
       const hwnd = String(t.hwnd);
       if (prev === hwnd) {
-        await api.synthInput({ mode: 'mouse' }); // 目标已在前台：直接发，零闪烁
+        await api.synthInput({ mode: 'mouse' }); // 目标已在前台(你正在用)：直接发，零闪烁、不最小化
         pulsed++;
         continue;
       }
@@ -50,10 +51,11 @@ async function doPulse() {
         await sleep(140); // 等前台切换稳定、Qt 处理激活后采集循环复活
         await api.synthInput({ mode: 'mouse' });
         await sleep(40);
+        if (minimize) await api.minimizeWindow(hwnd); // 瞬时弹起→喂输入→立刻最小化回任务栏
         pulsed++;
       }
     }
-    if (prev && prev !== '0' && !prevIsTarget) await api.focusWindow(prev); // 切回原前台
+    if (prev && prev !== '0' && !prevIsTarget) await api.focusWindow(prev); // 切回原前台（最小化已让焦点回落，这里再确保确定性）
     if (pulsed) status(`前台脉冲：已向 ${pulsed} 个窗口喂真实鼠标输入（重置其中远端云电脑的空闲）`, 'ok');
   } catch (e) {
     status('前台脉冲异常：' + ((e && e.message) || e), 'err');
@@ -108,7 +110,8 @@ export function startAntiSleep() {
     if ($('pulseMode').checked) {
       const n = pulseTargets().length;
       _pulseCd = 0; // 立即来一拍
-      if (n) status(`已开启前台脉冲：每 ${pulseSec()} 秒把 ${n} 个保活目标瞬时切前台喂一次真实鼠标（给窗口里的远端云电脑续空闲），随后切回原窗口`, 'ok');
+      const tail = $('pulseMin').checked ? '喂完即最小化回任务栏' : '随后切回原窗口';
+      if (n) status(`已开启前台脉冲：每 ${pulseSec()} 秒把 ${n} 个保活目标瞬时切前台喂一次真实鼠标（给窗口里的远端云电脑续空闲），${tail}`, 'ok');
       else status('已开启前台脉冲，但当前没有“勾了保活规则”的在线目标——请先给无影/串流窗口加一条“保活”规则', 'err');
     } else {
       status('已关闭前台脉冲');
@@ -116,4 +119,5 @@ export function startAntiSleep() {
     persist();
   });
   $('pulseSec').addEventListener('change', persist);
+  $('pulseMin').addEventListener('change', persist);
 }

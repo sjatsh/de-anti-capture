@@ -26,6 +26,7 @@ try {
     synthInput: fail,
     getForeground: () => '0',
     focusWindow: fail,
+    minimizeWindow: fail,
   };
 }
 

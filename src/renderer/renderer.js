@@ -69,6 +69,7 @@ async function init() {
     if (saved.synthMode) $('synthMode').value = saved.synthMode;
     $('pulseMode').checked = !!saved.pulseMode;
     if (saved.pulseSec) $('pulseSec').value = saved.pulseSec;
+    $('pulseMin').checked = saved.pulseMin !== false; // 默认开启（喂完即最小化）
     if (saved.stayAwake) applyStayAwake(); // 恢复时若之前开启，补发系统级防休眠断言
     state.targets = (saved.targets || []).map((t) => ({
       uid: newUid(),
