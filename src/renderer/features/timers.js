@@ -8,10 +8,14 @@ import { renderTargets } from '../ui/targets.js';
 export function startKeepAlive() {
   setInterval(() => {
     if (!$('kaToggle').checked) return;
+    // 前台脉冲接管保活目标时，跳过 PostMessage wiggle：它不经 Raw Input Thread，对“窗口里的远端云电脑”无效，
+    // 改由 antisleep 的前台脉冲喂真实输入（见 features/antisleep.js doPulse）。
+    const pulse = $('pulseMode').checked;
     for (const t of state.targets) {
       if (t.offline || !t.hwnd) continue;
       for (const r of t.rules) {
         if (r.kind !== 'keepalive' || !r.enabled) continue;
+        if (pulse) continue;
         r._cd = (r._cd == null ? r.intervalSec : r._cd) - 1;
         if (r._cd <= 0) {
           api.wiggle(t.hwnd, t.pid);

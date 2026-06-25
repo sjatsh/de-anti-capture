@@ -164,6 +164,16 @@
       </span>
     </div>
 
+    <div class="kbar">
+      <svg class="ico kbar-ico"><use href="#i-zap"/></svg>
+      <label class="switch" title="前台脉冲：给「窗口里的远端云电脑」(无影/串流客户端)喂真实输入，防远端会话休眠。客户端只转发它在前台时真正捕获到的输入(实测 stream_viewer 鼠标走 GetCursorPos 轮询、后台完全静默)，所以本机后台发消息无效，必须真把它切到前台再发真输入。开启后每隔 N 秒：记下当前前台→把目标窗口瞬时切前台→用 SendInput 发一次真实鼠标微移(±1px 净零)→立刻切回原窗口，焦点只闪几十毫秒。脉冲对象 = 勾了「保活」规则的目标窗口；目标已在前台时直接发输入、零闪烁。无影 15 分钟无操作才休眠，建议间隔 600~780 秒，一小时只闪四五下。开启脉冲后，对这些目标的 PostMessage 保活会自动跳过(对远端无效)。">
+        <input type="checkbox" id="pulseMode" />
+        <span class="track"><span class="thumb"></span></span>
+        <span class="switch-label">前台脉冲（给窗口内远端喂输入·防云电脑休眠）</span>
+      </label>
+      <span class="hint">每 <input id="pulseSec" type="number" min="30" max="900" value="600" class="mini-num" /> 秒切前台喂一次真实鼠标</span>
+    </div>
+
     <div class="logbar">
       <button class="logtoggle" id="logToggle" title="展开/收起日志面板"><svg class="ico chev"><use href="#i-chevron"/></svg></button>
       <div class="logtabs">

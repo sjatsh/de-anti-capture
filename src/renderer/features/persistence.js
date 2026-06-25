@@ -26,6 +26,8 @@ export function persist() {
     synthBeat: $('synthBeat').checked,
     synthSec: parseInt($('synthSec').value, 10) || 50,
     synthMode: $('synthMode').value || 'key',
+    pulseMode: $('pulseMode').checked,
+    pulseSec: parseInt($('pulseSec').value, 10) || 600,
     targets: state.targets.map((t) => ({ process: t.process, title: t.title, pid: t.pid, rules: t.rules })),
   });
 }

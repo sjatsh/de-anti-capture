@@ -177,5 +177,10 @@ function synthInput() {
   } catch (e) { return { ok: false, msg: String((e && e.message) || e) }; }
 }
 
-  return { listWindows, isWindow, wiggle, inject, eject, reload, moduleLoaded, systemAwake, synthInput };
+// 防休眠③：前台脉冲在 macOS 上暂不实现（切前台/还原焦点的可靠 API 与 Windows 不同，且本项目
+// 主战场是 Windows 无影客户端）。返回明确的 unsupported，渲染层据此不启用脉冲模式。
+function getForeground() { return '0'; }
+function focusWindow() { return { ok: false, focused: false, msg: 'macOS 暂不支持前台脉冲' }; }
+
+  return { listWindows, isWindow, wiggle, inject, eject, reload, moduleLoaded, systemAwake, synthInput, getForeground, focusWindow };
 }

@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('api', {
   wiggle: (hwnd, pid) => ipcRenderer.invoke('wiggle', hwnd, pid),
   systemAwake: (on) => ipcRenderer.invoke('system-awake', on), // 系统级防休眠（SetThreadExecutionState）
   synthInput: (opts) => ipcRenderer.invoke('synth-input', opts), // 真实输入心跳（SendInput）
+  getForeground: () => ipcRenderer.invoke('get-foreground'), // 当前前台窗口 hwnd（脉冲前记录）
+  focusWindow: (hwnd) => ipcRenderer.invoke('focus-window', hwnd), // 瞬时切前台（脉冲喂输入给远端）
   nativeInfo: () => ipcRenderer.invoke('native-info'),
   inject: (pid, dll) => ipcRenderer.invoke('inject', pid, dll),
   moduleLoaded: (pid, name) => ipcRenderer.invoke('module-loaded', pid, name),

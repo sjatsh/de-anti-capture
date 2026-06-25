@@ -41,6 +41,13 @@ const GetWindowThreadProcessId = user32.func('GetWindowThreadProcessId', 'uint32
 const PostMessageW = user32.func('PostMessageW', 'bool', ['uintptr', 'uint', 'uintptr', 'intptr']);
 const GetClientRect = user32.func('GetClientRect', 'bool', ['uintptr', 'void*']);
 const GetClassNameW = user32.func('GetClassNameW', 'int', ['uintptr', 'void*', 'int']);
+// 前台脉冲保活用：把目标窗口瞬时切到前台（AttachThreadInput 绕过前台锁），发真实输入后切回
+const SetForegroundWindow = user32.func('SetForegroundWindow', 'bool', ['uintptr']);
+const BringWindowToTop = user32.func('BringWindowToTop', 'bool', ['uintptr']);
+const AttachThreadInput = user32.func('AttachThreadInput', 'bool', ['uint32', 'uint32', 'bool']);
+const GetForegroundWindowFn = user32.func('GetForegroundWindow', 'uintptr', []);
+const IsIconic = user32.func('IsIconic', 'bool', ['uintptr']);
+const ShowWindow = user32.func('ShowWindow', 'bool', ['uintptr', 'int']);
 
 const OpenProcess = kernel32.func('OpenProcess', 'uintptr', ['uint', 'bool', 'uint']);
 const CloseHandle = kernel32.func('CloseHandle', 'bool', ['uintptr']);
@@ -58,6 +65,7 @@ const CreateToolhelp32Snapshot = kernel32.func('CreateToolhelp32Snapshot', 'uint
 const Module32FirstW = kernel32.func('Module32FirstW', 'bool', ['uintptr', 'void*']);
 const Module32NextW = kernel32.func('Module32NextW', 'bool', ['uintptr', 'void*']);
 const GetLastError = kernel32.func('GetLastError', 'uint', []);
+const GetCurrentThreadId = kernel32.func('GetCurrentThreadId', 'uint32', []);
 
 const big = (v) => (typeof v === 'bigint' ? v : BigInt(Math.trunc(v)));
 const isNull = (h) => big(h) === 0n;
@@ -253,5 +261,33 @@ function synthInput(opts) {
   return { ok: sent === parts.length, sent, mode };
 }
 
-  return { listWindows, isWindow, wiggle, inject, eject, reload, moduleLoaded, systemAwake, synthInput };
+// ---------------- 防休眠③：前台脉冲（focus-pulse）----------------
+// 给「窗口里的远端云电脑」喂真实输入：远端只转发它在前台时真正捕获到的输入（实测 stream_viewer
+// 鼠标走 GetCursorPos、键盘走窗口消息，后台完全静默）。所以必须把目标瞬时切前台再发 SendInput。
+// getForeground 记录当前前台 → 调用方 focus 目标 → SendInput → 再 focus 回原窗口，焦点只闪几十毫秒。
+function getForeground() {
+  return big(GetForegroundWindowFn()).toString();
+}
+// 把 hwnd 瞬时切到前台。AttachThreadInput 把本线程并到目标线程输入队列，绕过 SetForegroundWindow 的前台锁；
+// 最小化时先 ShowWindow(SW_RESTORE=9) 还原。返回 {ok:SetForeground 成功, focused:切换后确实是前台}。
+function focusWindow(hwndStr) {
+  const h = BigInt(hwndStr);
+  if (!IsWindow(h)) return { ok: false, focused: false };
+  const myTid = GetCurrentThreadId();
+  const pidBuf = Buffer.alloc(4);
+  const tgtTid = GetWindowThreadProcessId(h, pidBuf);
+  let attached = false;
+  if (tgtTid && tgtTid !== myTid) attached = !!AttachThreadInput(myTid, tgtTid, true);
+  try {
+    if (IsIconic(h)) ShowWindow(h, 9);   // SW_RESTORE
+    BringWindowToTop(h);
+    const ok = !!SetForegroundWindow(h);
+    const focused = big(GetForegroundWindowFn()) === h;
+    return { ok, focused };
+  } finally {
+    if (attached) AttachThreadInput(myTid, tgtTid, false);
+  }
+}
+
+  return { listWindows, isWindow, wiggle, inject, eject, reload, moduleLoaded, systemAwake, synthInput, getForeground, focusWindow };
 }

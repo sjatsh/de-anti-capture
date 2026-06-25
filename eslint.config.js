@@ -45,9 +45,9 @@ module.exports = [
     },
   },
 
-  // Vite 配置（.mjs，Node ESM）
+  // Vite 配置 + ESM 测试脚本（.mjs，Node ESM）：test/*.mjs 直接 import ESM 原生模块，故走 ESM
   {
-    files: ['vite.*.config.mjs'],
+    files: ['vite.*.config.mjs', 'test/**/*.mjs'],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: 'module',
