@@ -67,14 +67,28 @@ npm start          :: 启动；用注入功能时建议以管理员身份运行
 ```
 
 > 纯 **keepalive 保活** 装好依赖即可用，无需 DLL。
-> **注入类规则（idle / fg / uncapture / hook）** 需要 `bin\KeepAliveHook.dll`，先用 `build.bat` 编译（见下）。Electron 默认读取它，可在底部「浏览…」换路径。
+> **注入类规则（idle / fg / uncapture / hook）** 需要 `bin\KeepAliveHook.dll`，先用 `build.bat` 编译（见下）。该 DLL **随程序内置**（开发期取项目 `bin\`，打包后由主进程从 `resources\bin\` 复制到可写的 `userData\bin\`），注入时自动使用，界面不再暴露路径设置。
 > 位数要一致：Electron 与目标进程都需 x64；注入更高完整性级别的进程要管理员权限。
 
 **配置自动持久化**：目标窗口、规则、各开关设置都存到 `%APPDATA%\窗口保活与API拦截工具\state.json`，重启自动恢复。目标按「进程名 + 标题」重新绑定到当前活动窗口；对应程序没在跑则标记**离线**（保留规则，刷新或程序重开后自动重连）。
 
 ## 编译 C++ Hook DLL
 
-运行 **`build.bat`**（用本机 VS2019 BuildTools，无需 .NET SDK）：`cl.exe` → `bin\KeepAliveHook.dll`（x64，导出 `ReloadHooks`）。
+运行 **`build.bat`**（用本机 VS2019 BuildTools，无需 .NET SDK）：`cl.exe` → `bin\KeepAliveHook.dll`（x64，导出 `ReloadHooks`）；链接后自动清理 `.obj/.lib/.exp` 中间产物，`bin\` 只留交付物。
+
+## 打包 / 分发
+
+基于 **Electron Forge + Vite**（`@electron-forge/plugin-vite` 分别打包 main / preload / renderer）。
+
+```bat
+npm run build:dll  :: 发版前先刷新 bin\KeepAliveHook.dll（C++ 不随打包自动编译）
+npm run package    :: 生成未压缩应用目录 out\de-anti-capture-win32-x64\
+npm run make       :: 生成分发包 out\make\：Squirrel 安装器 DeAntiCapture-Setup.exe + 便携 zip
+```
+
+- **koffi 原生 FFI** 是拆分包（JS 加载器 `koffi/` + 预编译二进制 `@koromix/koffi-win32-x64`）：Vite 将其 external（保持运行时 `require`），`forge.config.js` 用自定义 `ignore` 把这两个包留进包内，再由 `asar.unpack` 解出 `.node` 到 `app.asar.unpacked`（asar 内无法 `dlopen`）。三道闸缺一不可。
+- **内置 DLL**：`extraResource: ['./bin']` 把 `bin\` 复制进 `resources\bin\`；打包版首启由 `resolveDll()` 复制到可写的 `userData\bin\` 再注入。
+- 安装器用 **Squirrel.Windows**（每用户装到 `%LocalAppData%`、免管理员、利于自动更新）；不带“选择安装目录”向导，需要便携版就发 zip。
 
 ## 使用
 `npm start` 启动（用注入功能时建议**以管理员身份运行**）。
@@ -105,19 +119,41 @@ npm start          :: 启动；用注入功能时建议以管理员身份运行
 | 配置持久化 + 重启重绑/离线 | ✅ 目标/规则/设置恢复，按进程+标题重绑 |
 
 ## 源码
+工程化为 **Electron Forge + Vite**，主/渲染两侧均为 ESM 模块（`main` 指向 Vite 产物 `.vite/build/index.js`）。
+
 ```
-package.json                  Electron 项目（根目录即应用，main=src/main.js）
+package.json                  Electron Forge 项目（main=.vite/build/index.js，由 Vite 生成）
+forge.config.js               Forge：asar.unpack(koffi/@koromix)、extraResource(bin)、makers(squirrel+zip)、plugin-vite
+vite.main.config.mjs          主进程打包（external: koffi/@koromix/.node；注入 APP_ROOT）
+vite.preload.config.mjs       preload 打包（CJS 输出）
+vite.renderer.config.mjs      渲染层打包（root=src/renderer、base './'、outDir 钉回顶层 .vite）
+eslint.config.js / .prettierrc / .editorconfig / .gitattributes   工程基建
 src/
-  main.js                     主进程：窗口、IPC、自绘标题栏、状态持久化(state.json)
-  preload.js                  contextBridge 暴露安全 API
+  main/                       主进程（ESM，按职责拆分）
+    index.js                  入口：whenReady → setDefaultDll(resolveDll()) → registerIpc() → createWindow()
+    window.js                 BrowserWindow + 渲染层/preload 加载（Forge Vite 魔法常量）、最大化状态同步
+    dll.js                    resolveDll（dev 用 APP_ROOT / 打包复制到 userData\bin）+ 默认 DLL 访问器
+    ipc.js                    注册全部 ipcMain 处理器（私有 guard 包装），通道名一字不改
+    state.js                  loadState/saveState（userData\state.json）
+    paths.js                  ICON / stateFile / hookLogFile / rulesFileFor
   config.js                   写 KeepAliveHook.rules.txt（带 pid）
-  native/win32.js             koffi 调 Win32：枚举/保活(PostMessage)/注入/卸载/热重载/模块检测
-  native/peexports.js         纯 JS 解析 PE 导出表（自动补全 + ReloadHooks RVA）
-  renderer/                   index.html / style.css / renderer.js（UI 与全部交互）
+  preload.js                  contextBridge 暴露 window.api（19 个方法）
+  native/
+    index.js                  平台分派 + 能力标志；win32/darwin 用 create() 工厂（koffi.load 延迟到选中平台）
+    win32.js                  koffi 调 Win32：枚举/保活(PostMessage)/注入/卸载/热重载/模块检测
+    peexports.js              纯 JS 解析 PE 导出表（自动补全 + ReloadHooks RVA）
+    darwin.js                 macOS 非注入子集（inject 类 stub 返回明确错误）
+  renderer/                   渲染层（ESM，单一 <script type="module"> 入口）
+    index.html  style.css  apidb.js
+    renderer.js               组合根：wireUp → 接线编辑器/标题栏/分隔条 → 启动定时器 → init(最后)
+    state.js                  共享可变单例
+    lib/{api,dom,format,sig}.js          桥接 / DOM+状态行 / 文案 / 函数签名
+    features/{persistence,inject,timers}.js   持久化+重绑 / 注入卸载应用 / 保活+自动注入
+    ui/{windowList,targets,rules,editor,chrome}.js   窗口列表 / 目标 / 规则 / 规则编辑器 / 标题栏+日志+分隔条
 HookDll/                      C++ 注入 DLL（注入类规则依赖）
   dllmain.cpp                 注入入口
   hooks.cpp / hooks.h         配置驱动 IAT Hook（idle 替身 + fg 前台伪装 + uncapture 防截屏 + hook mock + 按 pid 过滤）
-bin/                          KeepAliveHook.dll · KeepAliveHook.rules.txt · inject_target.exe
+bin/                          KeepAliveHook.dll · inject_target.exe（+ 运行时 KeepAliveHook.rules.txt）
 test/native-test.js           端到端：枚举→解析→注入→idle 验证（npm run native-test）
 build.bat                     编译 C++ DLL → bin\KeepAliveHook.dll
 ```

@@ -16,6 +16,18 @@ module.exports = {
     // 把内置拦截 DLL 与注入目标随包复制到 resources/bin/（resolveDll 的 packaged 分支零改动）。
     extraResource: ['./bin'],
     prune: true,
+    // plugin-vite 默认的 ignore 只保留 /.vite，会把 node_modules 全部排除——但 koffi 是 external，
+    // 必须把它的 JS 加载器与原生包 @koromix/* 留在包内（再由上面的 asar.unpack 解包出 .node）。
+    // 自定义 ignore 为函数时，plugin-vite 会原样沿用（不覆盖、不告警）。
+    ignore: (file) => {
+      if (!file) return false; // 根目录本身保留
+      if (file.startsWith('/.vite')) return false; // Vite 全部产物（main/preload/renderer）
+      if (file === '/package.json') return false; // 运行时元信息
+      if (file === '/node_modules' || file === '/node_modules/@koromix') return false; // 需进入这些目录递归
+      if (file.startsWith('/node_modules/koffi')) return false; // koffi JS 加载器
+      if (file.startsWith('/node_modules/@koromix/')) return false; // 预编译 koffi.node
+      return true; // 其余一律排除
+    },
   },
 
   // koffi 3.x 为预编译产物，无需 node-gyp 重建。

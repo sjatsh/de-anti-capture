@@ -1,0 +1,25 @@
+# 默认按文本处理，签出时用各平台原生换行（避免把仓库锁死成某一种）。
+* text=auto
+
+# Windows 批处理：cmd.exe 对 LF 换行解析不稳（set "VAR=" / ^ 续行会错乱），强制 CRLF。
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 这些一律 LF，避免 Windows 上被 autocrlf 改脏。
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.cjs  text eol=lf
+*.json text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.md   text eol=lf
+*.sh   text eol=lf
+
+# 二进制：不做换行/diff 处理。
+*.dll  binary
+*.exe  binary
+*.lib  binary
+*.exp  binary
+*.node binary
+*.png  binary
+*.ico  binary

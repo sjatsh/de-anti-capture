@@ -10,19 +10,22 @@
     "make": "electron-forge make",
     "icon": "electron tools/render-icon.js",
     "native-test": "node test/native-test.js",
-    "build:dll": "cmd /c build.bat",
+    "build:dll": "cmd /c .\\build.bat",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "dist": "electron-builder --win",
-    "pack": "electron-builder --win --dir"
+    "format:check": "prettier --check ."
   },
   "author": "sjatsh <admin@sjis.me>",
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/sjatsh/de-anti-capture.git" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sjatsh/de-anti-capture.git"
+  },
   "homepage": "https://github.com/sjatsh/de-anti-capture#readme",
-  "bugs": { "url": "https://github.com/sjatsh/de-anti-capture/issues" },
+  "bugs": {
+    "url": "https://github.com/sjatsh/de-anti-capture/issues"
+  },
   "dependencies": {
     "koffi": "^3.0.2"
   },
@@ -33,35 +36,9 @@
     "@electron-forge/plugin-vite": "^7.6.0",
     "@eslint/js": "^9.16.0",
     "electron": "^40.10.3",
-    "electron-builder": "^25.1.8",
     "eslint": "^9.16.0",
     "globals": "^15.13.0",
     "prettier": "^3.4.2",
     "vite": "^5.4.0"
-  },
-  "build": {
-    "appId": "me.sjis.windowkeepalive",
-    "productName": "窗口保活与API拦截工具",
-    "directories": { "output": "dist" },
-    "files": [
-      "src/**/*",
-      "assets/icon.png",
-      "package.json",
-      "!**/*.map",
-      "!**/node_modules/koffi/build/**"
-    ],
-    "extraResources": [
-      { "from": "bin", "to": "bin", "filter": ["KeepAliveHook.dll", "inject_target.exe"] }
-    ],
-    "asar": true,
-    "asarUnpack": ["**/node_modules/koffi/**"],
-    "win": { "target": "nsis", "icon": "assets/icon.png" },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "shortcutName": "窗口保活与API拦截工具"
-    }
   }
 }

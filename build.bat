@@ -24,6 +24,9 @@ cl /nologo /utf-8 /LD /O2 /MT /EHsc /DUNICODE /D_UNICODE ^
    /Febin\KeepAliveHook.dll /Fobin\ /link /IMPLIB:bin\KeepAliveHook.lib
 if errorlevel 1 ( echo [ERROR] DLL build failed & exit /b 1 )
 
+REM Remove compile intermediates so bin\ ships only deliverables (extraResource copies all of bin\).
+del /q bin\*.obj bin\KeepAliveHook.lib bin\KeepAliveHook.exp >nul 2>nul
+
 echo.
 echo === BUILD OK  -^>  bin\KeepAliveHook.dll ===
 echo Run the app:  npm start    ^(inject / idle / hook features need this DLL^)
