@@ -461,6 +461,9 @@ static void InstallFromConfig()
             { "user32.dll",   "ToUnicode" },
             { "user32.dll",   "MapVirtualKeyW" },
             { "user32.dll",   "GetKeyboardLayout" },
+            // 焦点门控探测：循环若在后台仍跑、靠这些判活，则可用透传伪装(安全)骗它继续采集
+            { "user32.dll",   "GetFocus" },
+            { "user32.dll",   "GetGUIThreadInfo" },
         };
         for (auto& o : OBS) {
             if (covered(o[0], o[1])) continue;
