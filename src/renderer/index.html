@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws://localhost:* http://localhost:*" />
   <link rel="stylesheet" href="style.css" />
   <title>窗口保活 / API 拦截工具</title>
 </head>
@@ -200,7 +200,6 @@
     </div>
   </div>
 
-  <script type="module" src="apidb.js"></script>
   <script type="module" src="renderer.js"></script>
 </body>
 </html>

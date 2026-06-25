@@ -6,7 +6,7 @@
  *        参数顺序即真实顺序；超过 4 个的参数在栈上，编辑器只渲染前 4 个。
  *  本库同时供「全量透传日志」(C++) 解释每次调用，故描述尽量贴近作用。
  * ========================================================================== */
-window.API_DB = {
+export const API_DB = {
   /* ───────────── 反调试 / 调试检测 ───────────── */
   isdebuggerpresent:          { dll:'kernel32', d:'检测当前进程是否被调试器附加', r:'BOOL', rd:'非0=有调试器；反调试常 mock 成 0', p:[] },
   checkremotedebuggerpresent: { dll:'kernel32', d:'检测指定进程是否正被调试', r:'BOOL', rd:'调用成功=非0；是否被调试看 pbDebuggerPresent', p:[['hProcess','HANDLE','目标进程句柄'],['pbDebuggerPresent','PBOOL','输出：是否被调试']] },

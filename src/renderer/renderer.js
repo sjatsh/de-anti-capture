@@ -1,4 +1,5 @@
-'use strict';
+import { API_DB } from './apidb.js';
+
 (() => {
 const $ = (id) => document.getElementById(id);
 const api = window.api;
@@ -206,9 +207,8 @@ const KIND_DESC = {
   uncapture: '防截屏置黑：装上时主动对本进程窗口调 SetWindowDisplayAffinity(NONE) 撕掉已有的“截屏排除”保护，并 hook 住防止重设。对“窗口创建时设一次保护、之后不再调用”的程序(如无影云)有效。需注入该进程(选 stream_viewer)。',
   hook: '通用拦截：可改入参、改返回值、或完全不调用原函数返回 mock 值。什么都不设=透传。需要注入。'
 };
-// 内置 Win32 API 签名库（apidb.js 提供 window.API_DB）：选中函数后显示原型/作用、
+// 内置 Win32 API 签名库（apidb.js 的 API_DB，模块顶部 import）：选中函数后显示原型/作用、
 // 给入参逐项标「参数名 + 类型」、给返回值输入框按返回类型动态提示。
-const API_DB = window.API_DB || {};
 const ARG_REGS = ['RCX', 'RDX', 'R8', 'R9'];
 // 查签名：先按原名小写，再去掉尾部 A/W 变体后缀。
 function funcSig(fn) {
