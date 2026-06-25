@@ -41,7 +41,7 @@ module.exports = {
       config: {
         // 每个 build 入口由各自的 Vite 配置打包；main 产物即 package.json 的 "main"。
         build: [
-          { entry: 'src/main.js', config: 'vite.main.config.mjs' },
+          { entry: 'src/main/index.js', config: 'vite.main.config.mjs' },
           { entry: 'src/preload.js', config: 'vite.preload.config.mjs' },
         ],
         renderer: [{ name: 'main_window', config: 'vite.renderer.config.mjs' }],

@@ -3,7 +3,7 @@
   "productName": "窗口保活与API拦截工具",
   "version": "2.0.0",
   "description": "窗口保活与 Win32 API 拦截工具（Electron + koffi + 注入式 Hook DLL）",
-  "main": ".vite/build/main.js",
+  "main": ".vite/build/index.js",
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
