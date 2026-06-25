@@ -454,6 +454,13 @@ static void InstallFromConfig()
             { "user32.dll",   "GetKeyboardState" },         // 轮询整张键盘
             { "user32.dll",   "GetCursorPos" },             // 轮询光标位置
             { "user32.dll",   "SetWindowsHookExW" },        // 低级钩子 WH_KEYBOARD_LL/WH_MOUSE_LL
+            { "user32.dll",   "SetWindowsHookExA" },        // 低级钩子(A 变体)
+            // 键盘走窗口消息时的处理特征(WM_KEYDOWN→翻译/查表)：Qt 等处理按键消息会调这些 →
+            // 若动键盘时它们命中、而 raw/轮询都不命中，说明键盘是走标准窗口消息(可试 PostMessage)。
+            { "user32.dll",   "ToUnicodeEx" },
+            { "user32.dll",   "ToUnicode" },
+            { "user32.dll",   "MapVirtualKeyW" },
+            { "user32.dll",   "GetKeyboardLayout" },
         };
         for (auto& o : OBS) {
             if (covered(o[0], o[1])) continue;
