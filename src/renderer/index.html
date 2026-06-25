@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <link rel="stylesheet" href="style.css" />
+  <title>窗口保活 / API 拦截工具</title>
+</head>
+<body>
+  <!-- ===== SVG 图标精灵 ===== -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></symbol>
+      <symbol id="i-inject" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></symbol>
+      <symbol id="i-eject" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+      <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></symbol>
+      <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+      <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></symbol>
+      <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+      <symbol id="i-win-min" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+      <symbol id="i-win-max" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1.5"/></symbol>
+      <symbol id="i-win-restore" viewBox="0 0 24 24"><rect x="7" y="7" width="11" height="11" rx="1.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4H18a2 2 0 0 1 2 2v7.5A1.5 1.5 0 0 1 18.5 15H17"/></symbol>
+      <symbol id="i-win-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+      <!-- 应用 logo：彩色，独立于线性图标（不被 .ico 的 fill:none/stroke 影响） -->
+      <linearGradient id="lgBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366F1"/><stop offset="1" stop-color="#8B5CF6"/></linearGradient>
+      <linearGradient id="lgPulse" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#34D399"/><stop offset="1" stop-color="#22D3EE"/></linearGradient>
+      <symbol id="i-logo" viewBox="0 0 256 256">
+        <rect x="20" y="20" width="216" height="216" rx="52" fill="url(#lgBg)"/>
+        <rect x="58" y="68" width="140" height="104" rx="18" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.92" stroke-width="7"/>
+        <path d="M58 96 H198" stroke="#ffffff" stroke-opacity="0.92" stroke-width="7"/>
+        <circle cx="78" cy="82" r="4.6" fill="#ffffff"/><circle cx="95" cy="82" r="4.6" fill="#ffffff"/>
+        <path d="M70 140 H100 L113 116 L130 162 L145 134 H186" stroke="url(#lgPulse)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <!-- ===== 自绘标题栏 ===== -->
+  <header class="titlebar">
+    <div class="tb-brand">
+      <svg class="logo-mark" viewBox="0 0 256 256" aria-hidden="true"><use href="#i-logo"/></svg>
+      <span class="tb-title">窗口保活 / API 拦截工具</span>
+      <span class="tb-tag">Electron</span>
+    </div>
+    <div class="tb-right">
+      <label class="switch" title="定时给保活规则的窗口发随机鼠标移动（不动你真实光标）">
+        <input type="checkbox" id="kaToggle" checked />
+        <span class="track"><span class="thumb"></span></span>
+        <span class="switch-label">保活定时器</span>
+      </label>
+      <div class="win-ctrls">
+        <button class="wbtn" id="winMin" title="最小化"><svg class="ico"><use href="#i-win-min"/></svg></button>
+        <button class="wbtn" id="winMax" title="最大化"><svg class="ico"><use href="#i-win-max"/></svg></button>
+        <button class="wbtn close" id="winClose" title="关闭"><svg class="ico"><use href="#i-win-close"/></svg></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="content">
+    <!-- 顶部：所有可见窗口 -->
+    <section class="panel winpanel" id="winpanel">
+      <div class="panel-head">
+        <svg class="ico head-ico"><use href="#i-monitor"/></svg>
+        <span class="panel-title">所有可见窗口</span>
+        <span class="pill count" id="winCount">0</span>
+        <div class="searchbox">
+          <svg class="ico"><use href="#i-search"/></svg>
+          <input id="filter" placeholder="筛选 PID / 进程 / 标题 / 句柄…" />
+        </div>
+        <button id="toggleAll" class="btn ghost" title="把隐藏窗口/无标题窗口也列出来（如全屏云电脑的投屏窗口）"><svg class="ico"><use href="#i-eye"/></svg>显示隐藏</button>
+        <button id="refresh" class="btn ghost"><svg class="ico"><use href="#i-refresh"/></svg>刷新</button>
+        <button id="addTarget" class="btn primary"><svg class="ico"><use href="#i-plus"/></svg>加入目标</button>
+      </div>
+      <div class="table">
+        <div class="thead">
+          <div class="c-pid">PID</div><div class="c-proc">进程</div>
+          <div class="c-title grow">窗口标题</div><div class="c-hwnd">句柄</div>
+        </div>
+        <div class="tbody" id="winBody"></div>
+      </div>
+    </section>
+
+    <div class="divider" id="divider" title="拖拽调整窗口列表高度"><span></span></div>
+
+    <!-- 下部：目标 + 规则 -->
+    <section class="lower">
+      <div class="panel targets">
+        <div class="panel-head">
+          <svg class="ico head-ico"><use href="#i-target"/></svg>
+          <span class="panel-title">目标窗口</span>
+          <span class="pill count" id="targetCount">0</span>
+          <span class="spacer"></span>
+          <button id="delTarget" class="btn ghost danger icononly" title="移除选中窗口"><svg class="ico"><use href="#i-trash"/></svg></button>
+        </div>
+        <div class="list" id="targetList"></div>
+      </div>
+
+      <div class="panel rules">
+        <div class="panel-head">
+          <svg class="ico head-ico"><use href="#i-layers"/></svg>
+          <span class="panel-title">选中窗口的规则</span>
+          <span class="hint" id="rulesHint"></span>
+          <span class="spacer"></span>
+          <button id="addRule" class="btn primary"><svg class="ico"><use href="#i-plus"/></svg>添加规则</button>
+          <button id="editRule" class="btn ghost icononly" title="编辑"><svg class="ico"><use href="#i-edit"/></svg></button>
+          <button id="delRule" class="btn ghost danger icononly" title="删除"><svg class="ico"><use href="#i-trash"/></svg></button>
+        </div>
+        <div class="list rulelist" id="ruleList"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 下部/日志区高度拖拽条 -->
+  <div class="divider vdiv" id="vdivider" title="拖拽：上调展开/加高活动日志，下调收起"><span></span></div>
+
+  <!-- ===== 底部操作栏 ===== -->
+  <footer class="footer">
+    <div class="dllrow">
+      <span class="lbl"><svg class="ico"><use href="#i-folder"/></svg>拦截 DLL</span>
+      <span class="dll-badge" id="dllBadge" title="已内置拦截 DLL，无需手动选择">内置 ✓</span>
+      <input id="dllPath" class="dll" readonly title="内置拦截 DLL 路径（注入 / idle / hook 用）" />
+      <button id="browse" class="btn ghost small" title="可选：改用自定义 DLL（一般无需）">自定义…</button>
+      <span class="spacer"></span>
+      <button id="inject" class="btn primary"><svg class="ico"><use href="#i-inject"/></svg>注入</button>
+      <button id="eject" class="btn ghost"><svg class="ico"><use href="#i-eject"/></svg>卸载</button>
+      <button id="apply" class="btn accent"><svg class="ico"><use href="#i-zap"/></svg>应用规则</button>
+    </div>
+
+    <div class="kbar">
+      <svg class="ico kbar-ico"><use href="#i-zap"/></svg>
+      <label class="switch" title="保持你的目标窗口处于已注入状态:对带「需注入规则」(idle / hook / 前台伪装 / 防截屏)的目标，持续保证它被注入并应用规则。目标进程重启/重连导致 PID 变化时,自动重新绑定并注入。适用于无影云会话进程,也适用于任何需要长期注入的程序。关闭仅停止自动维持(已注入的不动,可手动“卸载”还原)。">
+        <input type="checkbox" id="autoInject" />
+        <span class="track"><span class="thumb"></span></span>
+        <span class="switch-label">自动注入（目标 PID 变动自动重挂）</span>
+      </label>
+      <span class="hint">每 <input id="autoSec" type="number" min="2" max="60" value="5" class="mini-num" /> 秒巡检 · 带注入规则的目标若掉了/换了 PID 自动重新注入并应用规则</span>
+    </div>
+
+    <div class="logbar">
+      <button class="logtoggle" id="logToggle" title="展开/收起活动日志">
+        <svg class="ico chev"><use href="#i-chevron"/></svg>
+        <svg class="ico"><use href="#i-activity"/></svg>
+        <span>活动日志</span>
+      </button>
+      <div class="status" id="status">就绪</div>
+      <label class="switch sm" title="对常用 Win32 API 装观察钩子：透传真实调用，并把【哪个窗口 · 方法作用 · 入参 · 返回值】写入详细日志(%TEMP%\KeepAliveHook.log)。需先对目标注入，再点“应用规则”生效。">
+        <input type="checkbox" id="logAll" />
+        <span class="track"><span class="thumb"></span></span>
+        <span class="switch-label">全量 API 日志(透传)</span>
+      </label>
+      <button id="openLog" class="btn ghost small" title="打开拦截日志文件(%TEMP%\KeepAliveHook.log)"><svg class="ico"><use href="#i-activity"/></svg>打开日志</button>
+    </div>
+    <div class="logpanel" id="logPanel"></div>
+  </footer>
+
+  <!-- ===== 规则编辑弹窗 ===== -->
+  <div class="overlay hidden" id="overlay">
+    <div class="modal">
+      <div class="modal-head"><svg class="ico"><use href="#i-edit"/></svg><span id="modalTitle">添加规则</span></div>
+      <div class="modal-body">
+        <div class="field"><label>名称</label><input id="r_name" placeholder="（可留空，自动命名）" /></div>
+
+        <div class="field"><label>类型</label>
+          <div class="segmented" id="r_kind_seg">
+            <button type="button" class="seg" data-kind="keepalive">保活</button>
+            <button type="button" class="seg" data-kind="idle">idle 归零</button>
+            <button type="button" class="seg" data-kind="fg">前台伪装</button>
+            <button type="button" class="seg" data-kind="uncapture">防截屏</button>
+            <button type="button" class="seg" data-kind="hook">hook 拦截</button>
+          </div>
+          <input type="hidden" id="r_kind" value="keepalive" />
+        </div>
+        <div class="kind-desc" id="kindDesc"></div>
+
+        <div class="field row-ka"><label>间隔(秒)</label><input id="r_interval" type="number" min="1" max="3600" value="30" /></div>
+
+        <div class="field row-hd"><label>模块 DLL</label><div class="combo"><input id="r_dll" value="user32.dll" autocomplete="off" spellcheck="false" /></div></div>
+        <div class="field row-hd"><label>函数名</label><div class="combo"><input id="r_func" placeholder="输入即筛选导出函数 · ↑↓ 选择 · 回车确认" autocomplete="off" spellcheck="false" /></div></div>
+        <div class="func-sig hide" id="funcSig"></div>
+
+        <div class="row-hook group-sep"><span class="gt">拦截动作</span><span class="gh">改入参 · 调原函数 · 改返回；都不设 = 透传</span></div>
+        <div class="field args-field row-hook"><label>入参覆盖</label><div class="args-rows" id="argsRows"></div></div>
+        <label class="opt-row row-hook"><input type="checkbox" id="r_call" checked /><span class="opt-text"><b>调用原函数</b><small>取消 = 完全拦截，直接返回下方 mock 值</small></span></label>
+        <div class="field row-hook"><label>返回值</label>
+          <div class="retrow">
+            <label class="chk"><input type="checkbox" id="r_reten" /><span>拦截返回 / mock</span></label>
+            <input id="r_retval" placeholder="0 / 1 / 0x1" autocomplete="off" />
+          </div>
+        </div>
+
+        <label class="opt-row"><input type="checkbox" id="r_enabled" checked /><span class="opt-text"><b>启用此规则</b></span></label>
+      </div>
+      <div class="modal-foot"><button id="r_cancel" class="btn ghost">取消</button><button id="r_ok" class="btn primary">确定</button></div>
+    </div>
+  </div>
+
+  <script src="apidb.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

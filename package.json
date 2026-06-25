@@ -1,0 +1,49 @@
+{
+  "name": "window-keepalive",
+  "productName": "窗口保活与API拦截工具",
+  "version": "2.0.0",
+  "description": "Window keep-alive and API interception tool (Electron)",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "icon": "electron tools/render-icon.js",
+    "native-test": "node test/native-test.js",
+    "dist": "electron-builder --win",
+    "pack": "electron-builder --win --dir"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "electron": "^40.10.3",
+    "koffi": "^3.0.2"
+  },
+  "devDependencies": {
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "me.sjis.windowkeepalive",
+    "productName": "窗口保活与API拦截工具",
+    "directories": { "output": "dist" },
+    "files": [
+      "src/**/*",
+      "assets/icon.png",
+      "package.json",
+      "!**/*.map",
+      "!**/node_modules/koffi/build/**"
+    ],
+    "extraResources": [
+      { "from": "bin", "to": "bin", "filter": ["KeepAliveHook.dll", "inject_target.exe"] }
+    ],
+    "asar": true,
+    "asarUnpack": ["**/node_modules/koffi/**"],
+    "win": { "target": "nsis", "icon": "assets/icon.png" },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "窗口保活与API拦截工具"
+    }
+  }
+}

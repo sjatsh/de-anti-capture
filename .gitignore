@@ -1,0 +1,30 @@
+# ── 依赖 ──
+node_modules/
+
+# ── C/C++ 编译中间产物（build.bat 会在 bin/ 生成）──
+*.obj
+*.lib
+*.exp
+*.pdb
+*.ilk
+bin/KeepAliveHook.lib
+bin/KeepAliveHook.exp
+
+# ── 运行时 / 本地临时 ──
+*.log
+state.json
+# 开发期截图（tools/shot.ps1 / render-icon 调试输出等）；assets/icon.png 为入库资源不忽略
+shot*.png
+cap*.png
+v*.png
+p_*.png
+
+# 注：bin/ 下的交付物（KeepAliveHook.dll、KeepAliveGui.exe、inject_target.exe、
+#     KeepAliveHook.rules.txt）保留入库，仅忽略上面的编译中间产物。
+
+# ── OS / 编辑器 ──
+Thumbs.db
+Desktop.ini
+.vs/
+*.user
+*.suo
