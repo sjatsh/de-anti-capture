@@ -283,10 +283,11 @@ export function create(): NativeImpl {
   const KEYEVENTF_KEYUP = 0x0002;
   const VK_F15 = 0x7e;
 
-  function mouseMoveInput(dx: number): Buffer {
+  function mouseMoveInput(dx: number, dy = 0): Buffer {
     const b = Buffer.alloc(INPUT_SIZE);
     b.writeUInt32LE(INPUT_MOUSE, 0);
     b.writeInt32LE(dx, 8);
+    b.writeInt32LE(dy, 12);
     b.writeUInt32LE(MOUSEEVENTF_MOVE, 20);
     return b;
   }
@@ -300,7 +301,15 @@ export function create(): NativeImpl {
   function synthInput(opts?: SynthInputOpts): SynthResult {
     const mode = opts?.mode ?? 'key';
     const parts: Buffer[] = [];
-    if (mode === 'mouse' || mode === 'both') parts.push(mouseMoveInput(1), mouseMoveInput(-1));
+    if (mode === 'mouse' || mode === 'both') {
+      if (opts?.dx != null || opts?.dy != null) {
+        // 单向真实位移：让光标真正走位（前台脉冲用，供远端 GetCursorPos 轮询读到）
+        parts.push(mouseMoveInput(opts.dx ?? 0, opts.dy ?? 0));
+      } else {
+        // ±1px 净零微移：本机防空闲（SendInput 事件即更新系统「最后输入时间」）
+        parts.push(mouseMoveInput(1), mouseMoveInput(-1));
+      }
+    }
     if (mode === 'key' || mode === 'both') {
       const vk = opts?.vk ?? VK_F15;
       parts.push(keyInput(vk, false), keyInput(vk, true));

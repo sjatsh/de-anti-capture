@@ -6,6 +6,28 @@ import { useUiStore } from '../store/uiStore';
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+// 前台脉冲喂给「窗口内远端」的输入。无影 stream_viewer 实测靠轮询 GetCursorPos 读鼠标，
+// 所以必须让光标「真正走位」并停留足够长，横跨多次轮询采样才会被读到、转发到远端——
+// 单次 ±1px 瞬时净零微移会在两次轮询之间回到原点而被整体漏掉（这是“喂了没用”的根因）。
+// 这里让光标沿一个小方块走一圈（净零回到原点），约 240ms；末尾再补一记无害 F15 按键，
+// 同时覆盖「键盘走窗口消息」的客户端（双保险，按实测鼠标其实已足够）。
+const PULSE_STEPS: ReadonlyArray<readonly [number, number]> = [
+  [14, 0],
+  [0, 14],
+  [-14, 0],
+  [0, -14],
+  [10, 10],
+  [-10, -10],
+];
+
+async function feedRemoteInput(): Promise<void> {
+  for (const [dx, dy] of PULSE_STEPS) {
+    await api.synthInput({ mode: 'mouse', dx, dy });
+    await sleep(40);
+  }
+  await api.synthInput({ mode: 'key' });
+}
+
 export function useAntiSleep() {
   const synthCdRef = useRef(0);
   const pulseCdRef = useRef(0);
@@ -65,23 +87,22 @@ export function useAntiSleep() {
         const label = `${t.process}（hwnd ${hwnd}）`;
 
         if (prev === hwnd) {
-          await api.synthInput({ mode: 'mouse' });
-          setStatus(`前台脉冲：${label} 已在前台，直接喂真实鼠标（零闪烁、不最小化）`, 'ok');
+          await feedRemoteInput();
+          setStatus(`前台脉冲：${label} 已在前台，直接喂真实输入（光标走位+F15，零闪烁、不最小化）`, 'ok');
           pulsed++;
           continue;
         }
 
         const r = await api.focusWindow(hwnd);
         if (r?.focused) {
-          await sleep(140);
-          await api.synthInput({ mode: 'mouse' });
-          await sleep(40);
+          await sleep(140); // 等 Qt 激活稳定，之后再喂输入
+          await feedRemoteInput(); // 约 240ms 持续走位，横跨远端多次 GetCursorPos 轮询
           let minTxt = '';
           if (pulseMin) {
             const m = await api.minimizeWindow(hwnd);
             minTxt = m?.ok ? ' · 最小化✓' : ' · 最小化✗';
           }
-          setStatus(`前台脉冲：${label} 切前台✓ · 喂真实鼠标✓${minTxt}`, 'ok');
+          setStatus(`前台脉冲：${label} 切前台✓ · 喂真实输入✓（光标走位+F15）${minTxt}`, 'ok');
           pulsed++;
         } else {
           setStatus(

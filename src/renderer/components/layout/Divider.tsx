@@ -1,5 +1,6 @@
 import { useRef, useCallback } from 'react';
 import type { RefObject, MouseEvent } from 'react';
+import { nextFooterHeight } from '../../lib/resize';
 
 interface HorizDividerProps {
   onResize: (newHeight: number) => void;
@@ -39,12 +40,16 @@ export function HorizDivider({ onResize, panelRef, minH = 130, maxH }: HorizDivi
   );
 }
 
-interface LogDividerProps {
-  logPanelRef: RefObject<HTMLElement | null>;
-  onHeightChange: (h: number, open: boolean) => void;
+interface FooterResizerProps {
+  /** 指向 <footer>，用于读取它当前的总高度作为拖拽起点。 */
+  footerRef: RefObject<HTMLElement | null>;
+  /** 拖拽中回调：新的底部面板总高度 + 是否算作展开（太矮则收起，日志区让位给控制行）。 */
+  onResize: (height: number, open: boolean) => void;
 }
 
-export function LogDivider({ logPanelRef, onHeightChange }: LogDividerProps) {
+// 把手位于「内容区 ↔ 底部栏」分界线上，拖动调整整个底部面板（拦截DLL + 设置 + 日志）的总高度。
+// 日志区在底部面板内部 flex 自适应填充剩余空间，所以拖高=日志变高、拖到很矮=日志收起只留控制行。
+export function FooterResizer({ footerRef, onResize }: FooterResizerProps) {
   const drag = useRef(false);
   const startY = useRef(0);
   const startH = useRef(0);
@@ -52,30 +57,36 @@ export function LogDivider({ logPanelRef, onHeightChange }: LogDividerProps) {
   const onMouseDown = useCallback((e: MouseEvent) => {
     drag.current = true;
     startY.current = e.clientY;
-    startH.current = logPanelRef.current?.offsetHeight ?? 0;
+    startH.current = footerRef.current?.offsetHeight ?? 0;
     document.body.style.cursor = 'row-resize';
-    logPanelRef.current?.classList.add('dragging');
+    footerRef.current?.classList.add('dragging');
     e.preventDefault();
 
     const onMove = (me: globalThis.MouseEvent) => {
       if (!drag.current) return;
-      const h = Math.max(0, Math.min(Math.round(window.innerHeight * 0.6), startH.current + (startY.current - me.clientY)));
-      onHeightChange(h, h > 6);
+      // 往上拖的上限：最多到「目标窗口 / 规则」标题栏下沿，不盖住标题。
+      const head = document.querySelector('.lower .panel-head');
+      const limit = head
+        ? Math.round(head.getBoundingClientRect().bottom) + 8
+        : Math.round(window.innerHeight * 0.3);
+      const max = Math.max(160, window.innerHeight - limit);
+      const h = nextFooterHeight(startH.current, startY.current, me.clientY, max);
+      onResize(h, h > 250);
     };
     const onUp = () => {
       if (!drag.current) return;
       drag.current = false;
-      logPanelRef.current?.classList.remove('dragging');
+      footerRef.current?.classList.remove('dragging');
       document.body.style.cursor = '';
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-  }, [logPanelRef, onHeightChange]);
+  }, [footerRef, onResize]);
 
   return (
-    <div className="divider vdiv" title="拖拽：上调展开/加高活动日志，下调收起" onMouseDown={onMouseDown}>
+    <div className="divider vdiv" title="拖拽调整底部面板（拦截DLL / 设置 / 日志）的整体高度" onMouseDown={onMouseDown}>
       <span />
     </div>
   );

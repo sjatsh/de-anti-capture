@@ -91,7 +91,9 @@ B 的安全杠杆（伪装焦点 API / 注入激活消息）已全部失败。�
 
 ## 7. 方案 A（前台脉冲）已实现 —— 使用方法
 
-工具已内置「**前台脉冲**」（host 侧，无需注入）。原理：每隔 N 秒，**记下当前前台窗口 → 把目标窗口瞬时切到前台 → `SendInput` 发一次真实鼠标微移（±1px 净零，被 `GetCursorPos` 读到并转发到远端）→ 立刻切回原前台窗口**。焦点只闪几十毫秒（默认 140ms 等 Qt 激活稳定 + 40ms）。
+工具已内置「**前台脉冲**」（host 侧，无需注入）。原理：每隔 N 秒，**记下当前前台窗口 → 把目标窗口瞬时切到前台 → `SendInput` 让真实光标沿小方块走一圈（净零回到原点，约 240ms 持续走位）+ 补一记无害 F15 → 立刻切回原前台窗口**。焦点只闪三百多毫秒（140ms 等 Qt 激活稳定 + ~240ms 走位）。
+
+> ⚠️ **为什么不能用「±1px 瞬时净零微移」**（早期实现的坑）：无影靠**轮询** `GetCursorPos` 读鼠标（§4），一次 +1/−1 在同一个 `SendInput` 里瞬间回到原点，会在远端两次轮询采样之间被整体漏掉 → 远端「没看到光标动」→ 照样休眠。必须让光标**持续走位、停留足够长**横跨多次轮询，才会被读到并转发。这就是 `feedRemoteInput()` 走一圈而非原地抖一下的原因。
 
 默认还开了「**喂完即最小化**」：目标从任务栏**瞬时弹起 → 喂输入 → 立刻最小化**回任务栏，不让它一直占着桌面（`ShowWindow(SW_MINIMIZE)`，最小化会把焦点交回 z 序下一个窗口）。若目标本来就在前台（你正在用它），则只发输入、**不**最小化、零闪烁。关掉这个开关则回到「喂完切回原窗口、目标留在桌面」。
 
@@ -101,7 +103,7 @@ B 的安全杠杆（伪装焦点 API / 注入激活消息）已全部失败。�
 |---|---|---|
 | 记录当前前台 | `win32.ts getForeground()`（`GetForegroundWindow`） | smoke 测试返回正确 hwnd |
 | 瞬时切前台 | `win32.ts focusWindow()`：`AttachThreadInput` 绕前台锁 + `BringWindowToTop` + `SetForegroundWindow`，最小化时先 `ShowWindow(SW_RESTORE)` | smoke 测试 `{ok:true,focused:true}`，前台确实切换 |
-| 喂真实鼠标 | `synthInput({mode:'mouse'})`（`SendInput` ±1px） | 实测 stream_viewer 前台时 `GetCursorPos` 持续被读到（§4） |
+| 喂真实输入 | `feedRemoteInput()`：光标沿小方块走一圈（净零、~240ms 持续走位）+ 末尾 F15 | 横跨远端多次 `GetCursorPos` 轮询才会被读到（§4）；±1px 瞬时净零会被轮询漏掉 |
 | 喂完最小化 | `win32.ts minimizeWindow()`（`ShowWindow(SW_MINIMIZE)`，可关） | smoke 测试最小化后前台不再是靶子 |
 | 切回原窗口 | 再 `focusWindow(prev)` | smoke 测试前台正确还原 |
 | 定时驱动 | `renderer/hooks/useAntiSleep.ts` 的 `runPulse()`，1s 计时器按 `pulseSec` 触发，`pulseBusyRef` 防重入 | — |

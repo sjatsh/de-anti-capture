@@ -1,4 +1,3 @@
-import { useRef, useCallback } from 'react';
 import { useHookLogStore, type HookLine } from '../../store/hookLogStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useUiStore, type LogLine } from '../../store/uiStore';
@@ -6,15 +5,13 @@ import { useTargetsStore } from '../../store/targetsStore';
 import { api } from '../../lib/api';
 import { Icon } from '../icons/Icon';
 import { Switch } from '../common/Switch';
-import { LogDivider } from '../layout/Divider';
 
 export function LogSection() {
   const logPanelOpen = useUiStore((s) => s.logPanelOpen);
-  const logPanelHeight = useUiStore((s) => s.logPanelHeight);
   const statusMsg = useUiStore((s) => s.statusMsg);
   const statusCls = useUiStore((s) => s.statusCls);
   const activityLines = useUiStore((s) => s.activityLines);
-  const { setLogPanelOpen, setLogPanelHeight, setStatus } = useUiStore.getState();
+  const { setLogPanelOpen, setFooterHeight, setStatus } = useUiStore.getState();
 
   const hookLines = useHookLogStore((s) => s.hookLines);
   const hookUnread = useHookLogStore((s) => s.hookUnread);
@@ -24,24 +21,23 @@ export function LogSection() {
   const logAll = useSettingsStore((s) => s.logAll);
   const set = useSettingsStore((s) => s.set);
 
-  const logPanelRef = useRef<HTMLDivElement | null>(null);
-
-  const handleHeightChange = useCallback(
-    (h: number, open: boolean) => {
-      setLogPanelHeight(h);
-      setLogPanelOpen(open);
-    },
-    [setLogPanelHeight, setLogPanelOpen],
-  );
+  // 折叠 = 把底部面板总高拖到 0（min-content 兜底，只剩控制行）；展开 = 给个默认总高度。
+  function expandLog() {
+    setFooterHeight(360);
+    setLogPanelOpen(true);
+  }
 
   function toggleLogPanel() {
-    const next = !logPanelOpen;
-    setLogPanelOpen(next);
-    if (next && logPanelHeight < 24) setLogPanelHeight(170);
+    if (useUiStore.getState().footerHeight > 250) {
+      setFooterHeight(0);
+      setLogPanelOpen(false);
+    } else {
+      expandLog();
+    }
   }
 
   function switchView(view: 'activity' | 'hook') {
-    if (!logPanelOpen) setLogPanelOpen(true);
+    if (useUiStore.getState().footerHeight <= 250) expandLog();
     setView(view);
     if (view === 'hook') clearUnread();
   }
@@ -81,8 +77,6 @@ export function LogSection() {
 
   return (
     <>
-      <LogDivider logPanelRef={logPanelRef} onHeightChange={handleHeightChange} />
-
       <div className="logbar">
         <button
           className={`logtoggle${logPanelOpen ? ' open' : ''}`}
@@ -132,11 +126,8 @@ export function LogSection() {
         </button>
       </div>
 
-      <div
-        ref={logPanelRef}
-        className={`logpanel${logPanelOpen ? ' open' : ''}`}
-        style={{ height: logPanelOpen ? logPanelHeight : 0 }}
-      >
+      <div className="logwrap">
+      <div className={`logpanel${logPanelOpen ? ' open' : ''}`}>
         <div className={`logview${logView !== 'activity' ? ' hidden' : ''}`}>
           {activityLines.map((l, i) => (
             <div key={i} className={`logline${l.cls ? ' ' + l.cls : ''}`}>
@@ -162,6 +153,7 @@ export function LogSection() {
             );
           })}
         </div>
+      </div>
       </div>
     </>
   );

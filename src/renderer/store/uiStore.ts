@@ -17,12 +17,13 @@ interface UiState {
   statusCls: '' | 'ok' | 'err';
   activityLines: LogLine[];
   logPanelOpen: boolean;
-  logPanelHeight: number;
+  /** 底部面板（拦截DLL + 设置 + 日志）展开时的总高度；拖动把手调整，日志区在内部自适应填充。 */
+  footerHeight: number;
   winPanelHeight: number;
 
   setStatus(msg: string, cls?: '' | 'ok' | 'err'): void;
   setLogPanelOpen(open: boolean): void;
-  setLogPanelHeight(h: number): void;
+  setFooterHeight(h: number): void;
   setWinPanelHeight(h: number): void;
 }
 
@@ -30,8 +31,10 @@ export const useUiStore = create<UiState>((set) => ({
   statusMsg: '就绪',
   statusCls: '',
   activityLines: [],
-  logPanelOpen: false,
-  logPanelHeight: 170,
+  // 默认：日志区很矮（约几行），让上方「目标/规则」区占大头；
+  // 把手是「规则区 ↔ 底部」的分界，往下拖 = 规则区变大、日志收缩，往上拖 = 日志变大。
+  logPanelOpen: true,
+  footerHeight: 400,
   winPanelHeight: 252,
 
   setStatus: (msg, cls = '') =>
@@ -42,6 +45,6 @@ export const useUiStore = create<UiState>((set) => ({
     }),
 
   setLogPanelOpen: (logPanelOpen) => set({ logPanelOpen }),
-  setLogPanelHeight: (logPanelHeight) => set({ logPanelHeight }),
+  setFooterHeight: (footerHeight) => set({ footerHeight }),
   setWinPanelHeight: (winPanelHeight) => set({ winPanelHeight }),
 }));
