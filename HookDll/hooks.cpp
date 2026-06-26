@@ -4,6 +4,8 @@
 //     kind|enabled|dll|func|value|name
 //   kind=idle : 把 dll!func 当作 GetLastInputInfo 处理，空闲时间归零（保活拦截）
 //   kind=fg   : 把 GetForegroundWindow 伪装成返回本进程自己的主窗口（云电脑防掉线，骗客户端“我一直在前台”）
+//   kind=cursor : hook GetCursorPos —— 真实光标静止(空闲)时给返回坐标叠加“走小方块、长期净零”的微抖，
+//               骗客户端的轮询“仍有人在动”，持续转发活动给远端、不空闲掉线。不动真实光标、不切前台。
 //   kind=uncapture : 主动剥离本进程窗口的截屏保护(SetWindowDisplayAffinity→NONE)并 hook 防重设（防截屏置黑）
 //   kind=ret  : 让 dll!func 直接返回 value 这个常量（忽略原函数）
 //               —— x64 下对“返回 BOOL/状态码/句柄/指针”的检测类 API 通用有效
@@ -44,7 +46,7 @@ static RegEntry        g_reg[MAX_REG];
 static volatile LONG64 g_hits[MAX_REG]   = { 0 };   // 每条已安装规则的命中次数
 static LONG64          g_repSnap[MAX_REG] = { 0 };  // 上次上报的快照，仅在变化时再写 STAT
 static int             g_regN = 0;
-static int             g_idxIdle = -1, g_idxFg = -1, g_idxUncap = -1;   // C 钩子各自的计数槽
+static int             g_idxIdle = -1, g_idxFg = -1, g_idxUncap = -1, g_idxCursor = -1;   // C 钩子各自的计数槽
 static DWORD           g_lastRep = 0;
 static volatile LONG   g_repBusy = 0;
 
@@ -150,6 +152,34 @@ static HWND WINAPI Hooked_GetForegroundWindow(void)
     if (pid == GetCurrentProcessId()) return real;       // 本来就是自己在前台 -> 行为不变
     if (!g_ownMainWnd || !IsWindow(g_ownMainWnd)) g_ownMainWnd = FindOwnMainWindow();  // 缓存，仅失效时重找
     return g_ownMainWnd ? g_ownMainWnd : real;           // 否则谎报“我自己的主窗口在前台”
+}
+
+// ---------------- cursor 光标伪动（不靠前台脉冲、纯后台的保活替代方案）----------------
+// 无影 stream_viewer 轮询 GetCursorPos 读光标位置、算位移再转发给远端；长时间零位移 → 远端判定空闲断开。
+// 这里只在「真实光标静止(用户确已空闲)」时，给返回坐标叠加一个走 2 步小方块、四步一轮净零的 6px 微抖，
+// 让轮询看到“仍有人在动”，从而持续转发活动、不掉线。关键点：
+//   · 用户在动鼠标时原样透传真实坐标 —— 不影响命中测试/点击，不会让 UI 错位；
+//   · 全程不调 SetCursorPos / 不发 SendInput —— 真实系统光标一动不动，也不切前台、零闪屏。
+typedef BOOL(WINAPI* GetCursorPos_t)(LPPOINT);
+static GetCursorPos_t g_realGCP = nullptr;
+
+static BOOL WINAPI Hooked_GetCursorPos(LPPOINT p)
+{
+    OnHookHit((unsigned)g_idxCursor);
+    BOOL ok = g_realGCP ? g_realGCP(p) : FALSE;
+    if (!p) return ok;
+    if (!ok) { p->x = 0; p->y = 0; }                     // 原函数失败也给个基准坐标，保证轮询拿到“在动”的值
+
+    // 跟踪真实光标：坐标变了=用户在操作→透传(不抖)；静止超过 ~1.5s=空闲→开始叠加净零微抖。
+    static LONG lastX = 0, lastY = 0; static bool have = false; static DWORD stillSince = 0;
+    DWORD now = GetTickCount();
+    if (!have || p->x != lastX || p->y != lastY) { lastX = p->x; lastY = p->y; have = true; stillSince = now; return TRUE; }
+    if (now - stillSince < 1500) return TRUE;            // 刚停下的短暂停顿：先别抖，避免读东西时光标乱跳
+    static const int dx[4] = { 0, 6, 6, 0 };            // ┌→┐    四相走一个 6px 小方块，
+    static const int dy[4] = { 0, 0, 6, 6 };            // └←┘    每 800ms 进一相、3.2s 回到原点(长期净零)
+    int phase = (int)((now / 800) % 4);
+    p->x += dx[phase]; p->y += dy[phase];
+    return TRUE;
 }
 
 // ---------------- uncapture 防截屏：主动剥离 + 强制 NONE ----------------
@@ -397,7 +427,7 @@ static void ApplyRuleAllModules(const Rule& r, void* target, bool fgScope)
 
 static void RestoreAll()
 {
-    g_regN = 0; g_idxIdle = g_idxFg = g_idxUncap = -1;   // 先停计数(让 OnHookHit 短路)，再拆钩子/释放 stub
+    g_regN = 0; g_idxIdle = g_idxFg = g_idxUncap = g_idxCursor = -1;   // 先停计数(让 OnHookHit 短路)，再拆钩子/释放 stub
     for (auto& p : g_patches) WriteSlot(p.slot, p.original);
     g_patches.clear();
     for (void* t : g_thunks) VirtualFree(t, 0, MEM_RELEASE);
@@ -422,6 +452,8 @@ static void InstallFromConfig()
         g_realGFW = (GetForegroundWindow_t)GetProcAddress(GetModuleHandleW(L"user32.dll"), "GetForegroundWindow");
     if (!g_realSWDA)
         g_realSWDA = (SetWDA_t)GetProcAddress(GetModuleHandleW(L"user32.dll"), "SetWindowDisplayAffinity");
+    if (!g_realGCP)
+        g_realGCP = (GetCursorPos_t)GetProcAddress(GetModuleHandleW(L"user32.dll"), "GetCursorPos");
 
     // logall 观察模式：对一组“检测类”API 装透传计数钩子(kind=obs，不改行为只统计调用次数)，
     // 看目标到底在探什么、探多频。已被用户规则覆盖的(dll!func)跳过，避免与 fg/hook 冲突。
@@ -490,6 +522,11 @@ static void InstallFromConfig()
         {
             g_idxFg = RegisterRule(r.kind, r.dll, r.func);
             target = (void*)&Hooked_GetForegroundWindow;
+        }
+        else if (r.kind == "cursor")
+        {
+            g_idxCursor = RegisterRule(r.kind, r.dll, r.func);
+            target = (void*)&Hooked_GetCursorPos;       // 全模块挂(含 Qt)：静止才抖，动时透传，不会让 UI 错位
         }
         else if (r.kind == "uncapture")
         {

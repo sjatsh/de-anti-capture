@@ -11,6 +11,7 @@ export function ruleDetail(r: Rule): string {
   if (r.kind === 'keepalive') return `每 ${r.intervalSec} 秒发随机鼠标移动`;
   if (r.kind === 'idle') return `${r.dll}!${r.func}  空闲→0`;
   if (r.kind === 'fg') return `GetForegroundWindow 伪装成自身窗口（云电脑防掉线）`;
+  if (r.kind === 'cursor') return `GetCursorPos 空闲时叠加净零微抖（后台保活，不动真实光标）`;
   if (r.kind === 'uncapture') return `主动剥离截屏保护 + 强制 affinity=NONE（防截屏置黑）`;
   const parts = [`${r.dll}!${r.func}`];
   let any = false;
@@ -23,7 +24,7 @@ export function ruleDetail(r: Rule): string {
 }
 
 export function kindLabel(k: Rule['kind']): string {
-  return k === 'keepalive' ? '保活' : k === 'idle' ? 'idle' : k === 'fg' ? '前台伪装' : k === 'uncapture' ? '防截屏' : 'hook';
+  return k === 'keepalive' ? '保活' : k === 'idle' ? 'idle' : k === 'fg' ? '前台伪装' : k === 'cursor' ? '光标伪动' : k === 'uncapture' ? '防截屏' : 'hook';
 }
 
 const AV_COLORS = ['#7c8dff','#38e0c0','#ffc26b','#ff6f7d','#b98cff','#46d3f0','#f08bd0','#7ad17a','#ff9f6b','#6bc6ff'];

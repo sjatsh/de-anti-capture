@@ -106,6 +106,13 @@ function judge(rule: Rule, b: ProbeSample, a: ProbeSample): Verdict {
         detail: `探针未调用 ${rule.dll}!${rule.func}，无法自动对比；改用「拦截日志」命中计数/观察确认`,
       };
     }
+    case 'cursor':
+      return {
+        pass: null,
+        before: '-',
+        after: '-',
+        detail: '光标伪动只在后台静止时微抖保活，探针无法自动对比坐标；注入目标后看「拦截日志」里 GetCursorPos 的命中计数确认已挂上。',
+      };
     default:
       return { pass: null, before: '-', after: '-', detail: '该类型不支持自动验证' };
   }

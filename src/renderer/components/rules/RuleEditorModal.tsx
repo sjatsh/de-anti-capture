@@ -8,6 +8,7 @@ const KIND_DESC: Record<RuleKind, string> = {
   keepalive: '定时向该窗口投递随机坐标的鼠标移动消息，让程序自己不进入空闲（不动你真实光标）。无需注入。',
   idle: '把某 API 当作 GetLastInputInfo 处理，让系统空闲时间归零。需要先对该窗口注入 DLL。',
   fg: '把 GetForegroundWindow 伪装成"返回本进程自己的主窗口"，让无影云 stream_viewer 以为自己一直在前台，从而持续把你本地输入转发到远端、不空闲掉线。零闪屏。需注入该进程(选 stream_viewer)。副作用：开启后本地输入会被转发进远端会话。',
+  cursor: 'hook GetCursorPos：真实光标静止(你确已离开)时，给程序读到的坐标叠加一个走小方块、长期净零的 6px 微抖，让无影云 stream_viewer 的轮询以为"仍有人在动"，从而持续转发活动、不空闲掉线。你在动鼠标时原样透传——不影响点击/命中测试。不动真实光标、不切前台、零闪屏，是「前台脉冲」的纯后台替代。需注入该进程(选 stream_viewer)。',
   uncapture: '防截屏置黑：装上时主动对本进程窗口调 SetWindowDisplayAffinity(NONE) 撕掉已有的"截屏排除"保护，并 hook 住防止重设。对"窗口创建时设一次保护、之后不再调用"的程序(如无影云)有效。需注入该进程(选 stream_viewer)。',
   hook: '通用拦截：可改入参、改返回值、或完全不调用原函数返回 mock 值。什么都不设=透传。需要注入。',
 };
@@ -156,6 +157,7 @@ export function RuleEditorModal({ open, initialRule, onConfirm, onClose }: RuleE
   useEffect(() => {
     if (kind === 'idle' && !func) { setDll('user32.dll'); setFunc('GetLastInputInfo'); }
     if (kind === 'fg') { setDll('user32.dll'); setFunc('GetForegroundWindow'); }
+    if (kind === 'cursor') { setDll('user32.dll'); setFunc('GetCursorPos'); }
     if (kind === 'uncapture') { setDll('user32.dll'); setFunc('SetWindowDisplayAffinity'); }
   }, [kind]);
 
@@ -279,9 +281,9 @@ export function RuleEditorModal({ open, initialRule, onConfirm, onClose }: RuleE
           <div className="field">
             <label>类型</label>
             <div className="segmented">
-              {(['keepalive','idle','fg','uncapture','hook'] as RuleKind[]).map((k) => (
+              {(['keepalive','idle','fg','cursor','uncapture','hook'] as RuleKind[]).map((k) => (
                 <button key={k} type="button" className={`seg${kind === k ? ' active' : ''}`} onClick={() => setKind(k)}>
-                  {k === 'keepalive' ? '保活' : k === 'idle' ? 'idle 归零' : k === 'fg' ? '前台伪装' : k === 'uncapture' ? '防截屏' : 'hook 拦截'}
+                  {k === 'keepalive' ? '保活' : k === 'idle' ? 'idle 归零' : k === 'fg' ? '前台伪装' : k === 'cursor' ? '光标伪动' : k === 'uncapture' ? '防截屏' : 'hook 拦截'}
                 </button>
               ))}
             </div>

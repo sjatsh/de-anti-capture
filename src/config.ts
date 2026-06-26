@@ -18,7 +18,7 @@ export function save(cfgPath: string, targets: ConfigTarget[], opts: { logAll?: 
   if (opts && opts.logAll) s += '0|logall|1|||\r\n';
   for (const t of targets) {
     for (const r of t.rules) {
-      if (r.kind !== 'idle' && r.kind !== 'hook' && r.kind !== 'fg' && r.kind !== 'uncapture') continue;
+      if (r.kind !== 'idle' && r.kind !== 'hook' && r.kind !== 'fg' && r.kind !== 'uncapture' && r.kind !== 'cursor') continue;
       const name = String(r.name || '').replace(/[|\r\n]/g, ' ');
       s += `${t.pid}|${r.kind}|${r.enabled ? 1 : 0}|${r.dll || ''}|${r.func || ''}|${buildSpec(r)}|${name}\r\n`;
     }

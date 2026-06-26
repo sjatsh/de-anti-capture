@@ -9,7 +9,7 @@ import type { Target, Rule } from '@shared/types';
 function needsInject(t: Target): boolean {
   return (t.rules || []).some(
     (r: Rule) =>
-      r.enabled && (r.kind === 'idle' || r.kind === 'hook' || r.kind === 'fg' || r.kind === 'uncapture'),
+      r.enabled && (r.kind === 'idle' || r.kind === 'hook' || r.kind === 'fg' || r.kind === 'uncapture' || r.kind === 'cursor'),
   );
 }
 
