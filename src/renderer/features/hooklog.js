@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { api } from '../lib/api.js';
-import { $ } from '../lib/dom.js';
+import { $, status } from '../lib/dom.js';
 import { parseHookLine, ruleHookKey, lineClass } from '../lib/hookparse.js';
 import { renderRules } from '../ui/rules.js';
 
@@ -128,6 +128,28 @@ export function initLogTabs() {
       setView(b.dataset.view);
     };
   });
+
+  // 复制当前可见日志视图（活动/拦截）的全部内容到剪贴板
+  const copyBtn = $('copyLog');
+  if (copyBtn) {
+    copyBtn.onclick = async () => {
+      const h = $('logViewHook');
+      const view = h && !h.classList.contains('hidden') ? h : $('logViewActivity');
+      if (!view) return;
+      const which = view.id === 'logViewHook' ? '拦截日志' : '活动日志';
+      const lines = [...view.querySelectorAll('.logline')].map((l) => {
+        const ts = (l.querySelector('.ts') || {}).textContent || '';
+        const msg = (l.querySelector('.msg') || {}).textContent || '';
+        return (ts ? ts + ' ' : '') + msg;
+      });
+      if (!lines.length) {
+        status(`${which}为空，没有可复制的内容`, 'err');
+        return;
+      }
+      const r = await api.copyText(lines.join('\r\n'));
+      status(r && r.ok ? `已复制${which} ${lines.length} 行到剪贴板` : `复制失败：${(r && r.msg) || '剪贴板不可用'}`, r && r.ok ? 'ok' : 'err');
+    };
+  }
 }
 
 export async function initHookLog() {

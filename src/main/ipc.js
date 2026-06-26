@@ -1,4 +1,4 @@
-import { ipcMain, shell } from 'electron';
+import { ipcMain, shell, clipboard } from 'electron';
 import fs from 'fs';
 import native from '../native/index.js';
 import * as pe from '../native/peexports.js';
@@ -74,6 +74,16 @@ export function registerIpc() {
 
   // ---- 拦截日志：实时 tail 的初始回放（订阅时拿最近缓冲）----
   ipcMain.handle('hook-log-read', () => readHookLogBuffer());
+
+  // ---- 复制日志到系统剪贴板（走主进程 clipboard，避开渲染层 sandbox/安全上下文限制）----
+  ipcMain.handle('copy-text', (e, text) => {
+    try {
+      clipboard.writeText(String(text == null ? '' : text));
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, msg: String((err && err.message) || err) };
+    }
+  });
 
   // ---- 一键验证：起探针注入该规则并对比注入前后观测 ----
   ipcMain.handle('verify-rule', (e, rule) => verifyRule(rule));

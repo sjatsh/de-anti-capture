@@ -314,6 +314,10 @@ input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); c
 .logpanel .logline.warn .msg { color: #ffc26b; }
 .logpanel .logline.obs .msg { color: #6fb3c9; }
 .logview.hidden { display: none; }
+/* 日志面板允许选中复制（body 全局 user-select:none，这里单独放开）*/
+.logpanel .logview, .logpanel .logline, .logpanel .logline .ts, .logpanel .logline .msg {
+  user-select: text; -webkit-user-select: text; cursor: text;
+}
 
 /* 底部日志「活动 / 拦截」标签切换 */
 .logtabs { display: inline-flex; gap: 3px; flex: 0 0 auto; -webkit-app-region: no-drag; }

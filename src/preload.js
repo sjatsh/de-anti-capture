@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('api', {
   loadState: () => ipcRenderer.invoke('load-state'),
   saveState: (s) => ipcRenderer.invoke('save-state', s),
   openHookLog: () => ipcRenderer.invoke('open-hook-log'),
+  copyText: (text) => ipcRenderer.invoke('copy-text', text), // 复制日志到剪贴板（主进程 clipboard）
   readHookLog: () => ipcRenderer.invoke('hook-log-read'), // 订阅时取最近缓冲做回放
   onHookLog: (cb) => ipcRenderer.on('hook-log-line', (_e, payload) => cb(payload)), // 实时增量行
   verifyRule: (rule) => ipcRenderer.invoke('verify-rule', rule), // 一键验证：注入前后对比
