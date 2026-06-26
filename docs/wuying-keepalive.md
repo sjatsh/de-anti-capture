@@ -99,12 +99,12 @@ B 的安全杠杆（伪装焦点 API / 注入激活消息）已全部失败。�
 
 | 环节 | 在哪 | 验证 |
 |---|---|---|
-| 记录当前前台 | `win32.js getForeground()`（`GetForegroundWindow`） | smoke 测试返回正确 hwnd |
-| 瞬时切前台 | `win32.js focusWindow()`：`AttachThreadInput` 绕前台锁 + `BringWindowToTop` + `SetForegroundWindow`，最小化时先 `ShowWindow(SW_RESTORE)` | smoke 测试 `{ok:true,focused:true}`，前台确实切换 |
+| 记录当前前台 | `win32.ts getForeground()`（`GetForegroundWindow`） | smoke 测试返回正确 hwnd |
+| 瞬时切前台 | `win32.ts focusWindow()`：`AttachThreadInput` 绕前台锁 + `BringWindowToTop` + `SetForegroundWindow`，最小化时先 `ShowWindow(SW_RESTORE)` | smoke 测试 `{ok:true,focused:true}`，前台确实切换 |
 | 喂真实鼠标 | `synthInput({mode:'mouse'})`（`SendInput` ±1px） | 实测 stream_viewer 前台时 `GetCursorPos` 持续被读到（§4） |
-| 喂完最小化 | `win32.js minimizeWindow()`（`ShowWindow(SW_MINIMIZE)`，可关） | smoke 测试最小化后前台不再是靶子 |
+| 喂完最小化 | `win32.ts minimizeWindow()`（`ShowWindow(SW_MINIMIZE)`，可关） | smoke 测试最小化后前台不再是靶子 |
 | 切回原窗口 | 再 `focusWindow(prev)` | smoke 测试前台正确还原 |
-| 定时驱动 | `renderer/features/antisleep.js doPulse()`，1s 计时器按 `pulseSec` 触发，`_pulseBusy` 防重入 | — |
+| 定时驱动 | `renderer/hooks/useAntiSleep.ts` 的 `runPulse()`，1s 计时器按 `pulseSec` 触发，`pulseBusyRef` 防重入 | — |
 
 **怎么用：**
 
@@ -115,7 +115,7 @@ B 的安全杠杆（伪装焦点 API / 注入激活消息）已全部失败。�
 5. **点「立即脉冲」可手动触发一次**（不等间隔），活动日志会逐窗口报告 `切前台✓ · 喂鼠标✓ · 最小化✓` 或失败原因——排查「感觉没生效」就看这里。
 
 **与其它开关的关系：**
-- 开启前台脉冲后，「保活定时器」对这些目标的 `PostMessage` wiggle 会**自动跳过**（对远端无效，见 `timers.js`）。
+- 开启前台脉冲后，「保活定时器」对这些目标的 `PostMessage` wiggle 会**自动跳过**（对远端无效，见 `src/renderer/hooks/useKeepAlive.ts`）。
 - 「系统级防休眠」「真实输入心跳」是防**本机**休眠/空闲，与前台脉冲（防**远端云电脑**休眠）正交，可同时开。
 
-**手动验证原生层：** `node test/pulse-smoke.mjs` —— 会把前台切到另一窗口发一次真实鼠标再切回，打印每一步结果，确认 koffi 绑定与切前台链路正常。
+**手动验证原生层：** `$env:RUN_PULSE=1; npm test`（Windows PowerShell）—— 跑 `test/integration/pulse.test.ts`：把前台切到另一窗口发一次真实鼠标再切回，确认 koffi 绑定与切前台链路正常（默认跳过，避免打扰桌面）。

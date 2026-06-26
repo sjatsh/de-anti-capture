@@ -31,14 +31,14 @@ flowchart TB
         UI["窗口列表 / 规则编辑器 / 目标卡\n实时日志面板 / 一键验证按钮"]
     end
     subgraph MAIN["Electron 主进程 (src/main)"]
-        IPC["ipc.js  IPC 处理器"]
-        DLL["dll.js  解析内置 DLL 路径"]
-        CFG["config.js  写 rules.txt"]
-        VER["verify.js  探针验证编排"]
-        TAIL["logtail.js  轮询 %TEMP%\\KeepAliveHook.log"]
+        IPC["ipc.ts  IPC 处理器"]
+        DLL["dll.ts  解析内置 DLL 路径"]
+        CFG["config.ts  写 rules.txt"]
+        VER["verify.ts  探针验证编排"]
+        TAIL["logtail.ts  轮询 %TEMP%\\KeepAliveHook.log"]
     end
     subgraph NATIVE["原生桥 (src/native, koffi FFI)"]
-        W32["win32.js\nlistWindows / inject / eject / reload\nwiggle / moduleLoaded"]
+        W32["win32.ts\nlistWindows / inject / eject / reload\nwiggle / moduleLoaded"]
     end
     subgraph TARGET["目标进程 (被注入)"]
         DLLT["KeepAliveHook.dll\nIAT Hook 引擎"]
@@ -73,10 +73,10 @@ flowchart TB
 |---|---|---|---|
 | **渲染层** | `src/renderer/` | Chromium 沙箱、无 Node | 全部 UI；通过 `window.api`（preload 暴露）发起所有操作；解析日志渲染状态徽章/命中数 |
 | **主进程** | `src/main/` | Node | IPC 路由、解析内置 DLL、写 `rules.txt`、注入/卸载编排、验证探针编排、轮询日志回推 |
-| **原生桥** | `src/native/win32.js` | Node + koffi(FFI) | 用 koffi 调 `user32/kernel32`：枚举窗口、注入/卸载/热重载、PostMessage 保活、查模块是否已加载 |
+| **原生桥** | `src/native/win32.ts` | Node + koffi(FFI) | 用 koffi 调 `user32/kernel32`：枚举窗口、注入/卸载/热重载、PostMessage 保活、查模块是否已加载 |
 | **拦截 DLL** | `HookDll/*.cpp` → `bin/KeepAliveHook.dll` | **目标进程内** | 真正的 IAT Hook 引擎：读规则、改写导入表、伪装 API、命中计数、热重载/还原 |
 
-> 渲染层与 Node 完全隔离（`contextIsolation`），只能经 preload 的 [`window.api`](../src/preload.js) 这 20 个白名单方法与主进程通信——这是 Electron 官方 process-model 的安全边界。
+> 渲染层与 Node 完全隔离（`contextIsolation`），只能经 preload 的 [`window.api`](../src/preload.ts) 这 20 个白名单方法与主进程通信——这是 Electron 官方 process-model 的安全边界。
 
 ---
 
@@ -121,7 +121,7 @@ flowchart LR
 sequenceDiagram
     participant UI as 渲染层
     participant M as 主进程
-    participant N as native/win32.js
+    participant N as native/win32.ts
     participant T as 目标进程
     participant D as KeepAliveHook.dll
 
@@ -139,7 +139,7 @@ sequenceDiagram
     M-->>UI: 结果（界面状态条）
 ```
 
-注入用的是最经典稳健的 **`CreateRemoteThread` + `LoadLibraryW`** 手法（`src/native/win32.js` 的 `inject()`）：在目标进程里起一个
+注入用的是最经典稳健的 **`CreateRemoteThread` + `LoadLibraryW`** 手法（`src/native/win32.ts` 的 `inject()`）：在目标进程里起一个
 远程线程直接调 `LoadLibraryW("KeepAliveHook.dll")`，DLL 的 `DllMain` 一旦被加载就自动 `StartHooking`。
 
 ### 4.2 挂钩（InstallFromConfig）
@@ -187,7 +187,7 @@ DLL 读取**同目录**的 `KeepAliveHook.rules.txt`（每行一条规则），�
 ```mermaid
 flowchart TB
     subgraph BAD["路线 A：wiggle（host 侧，规则 kind=keepalive）❌ 多数无效"]
-        A1["定时器每隔 N 秒\nwin32.js wiggle()"] --> A2["PostMessageW(hwnd, WM_MOUSEMOVE)\n投递假消息进目标消息队列"]
+        A1["定时器每隔 N 秒\nwin32.ts wiggle()"] --> A2["PostMessageW(hwnd, WM_MOUSEMOVE)\n投递假消息进目标消息队列"]
     end
     subgraph GOOD["路线 B：idle hook（注入，规则 kind=idle）✅ 已验证有效"]
         B1["注入 DLL"] --> B2["Hook GetLastInputInfo\n→ 永远返回 GetTickCount()"]
@@ -215,8 +215,8 @@ Windows 的“最后输入时间”由内核的 **Raw Input Thread (RIT)** 维�
 
 > **②③ 已落地为底部操作栏的两个开关**（host 侧、无需注入）：「系统级防休眠（不息屏/不睡眠）」→ `systemAwake`(SetThreadExecutionState)；
 > 「真实输入心跳」→ 定时 `synthInput`(SendInput，可选 F15 按键 / 鼠标 ±1px 微移 / 两者)。实测 SendInput 把未注入探针读到的真实
-> 全局空闲从 `1672ms → 0ms`——这正是 ① 路线的 `PostMessage` 做不到的。代码见 `src/native/win32.js` 的 `systemAwake/synthInput`、
-> 渲染层 `src/renderer/features/antisleep.js`。
+> 全局空闲从 `1672ms → 0ms`——这正是 ① 路线的 `PostMessage` 做不到的。代码见 `src/native/win32.ts` 的 `systemAwake/synthInput`、
+> 渲染层 `src/renderer/hooks/useAntiSleep.ts`。
 
 要点辨析：
 - **① 最干净**：非侵入、只影响目标进程，且已被一键验证证明有效（空闲 `73406ms → 0`）。**首选**。
@@ -257,7 +257,7 @@ flowchart LR
 
 ## 8. 命中计数与一键验证体系
 
-**这套是为了让“拦截到底生效没”可观测、可自证**，分三档（详见 `docs` 内调试相关说明与 `src/main/verify.js`）：
+**这套是为了让“拦截到底生效没”可观测、可自证**，分三档（详见 `docs` 内调试相关说明与 `src/main/verify.ts`）：
 
 - **Tier 1 实时日志 + 挂钩徽章**：主进程轮询 `%TEMP%\KeepAliveHook.log`，渲染层解析出 `rule[..] -> N slot(s)`，规则卡显示
   `✓ 已挂 N` / `✗ 0 处`（0 处 = 已注入但 IAT 里没有那一格，即动态取址或名字不符）。
@@ -310,4 +310,4 @@ pid | kind | enabled | dll | func | spec | name
 
 ---
 
-*本文随代码演进维护；涉及具体实现处给出了 `HookDll/hooks.cpp`、`src/native/win32.js`、`src/main/verify.js` 等源码位置，便于对照。*
+*本文随代码演进维护；涉及具体实现处给出了 `HookDll/hooks.cpp`、`src/native/win32.ts`、`src/main/verify.ts` 等源码位置，便于对照。*

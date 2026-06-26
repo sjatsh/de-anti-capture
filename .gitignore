@@ -37,3 +37,7 @@ Desktop.ini
 .vite/
 out/
 dist/
+bin/
+
+.codex/
+.claude/

@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import { fileURLToPath } from 'node:url';
-import { dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
 
 const projectRoot = dirname(fileURLToPath(import.meta.url));
 
@@ -10,6 +10,11 @@ const projectRoot = dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   define: {
     'process.env.APP_ROOT': JSON.stringify(projectRoot),
+  },
+  resolve: {
+    alias: {
+      '@shared': resolve(projectRoot, 'src/shared'),
+    },
   },
   build: {
     sourcemap: true,

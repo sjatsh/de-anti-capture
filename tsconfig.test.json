@@ -1,0 +1,8 @@
+{
+  "comment": "测试文件的类型检查（Vitest 用 esbuild 转译不做类型检查，这里补上）。继承渲染层配置以复用 @ / @shared 别名与 DOM 库，叠加 node 全局。",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "vite/client"]
+  },
+  "include": ["test", "src"]
+}

@@ -44,8 +44,8 @@ koffi 在 macOS arm64 上能直接调这些系统框架（CoreGraphics/IOKit/App
 
 ## 四、建议的 macOS 架构与计划
 
-1. **抽象原生层**：新增 `src/native/index.js`，按 `process.platform` 分派到 `win32.js`（现有）/ `darwin.js`（新）。两者实现同一接口（`listWindows / wiggle / keepAlive / setIdleAssertion …`）。
-2. **`darwin.js`**：koffi 调 CoreGraphics（窗口列表/合成输入）+ IOKit（电源断言/空闲）。窗口列表优先复用 `get-windows` 原生 helper。
+1. **抽象原生层**：新增 `src/native/index.ts`，按 `process.platform` 分派到 `win32.ts`（现有）/ `darwin.ts`（新）。两者实现同一接口（`listWindows / wiggle / keepAlive / setIdleAssertion …`）。
+2. **`darwin.ts`**：koffi 调 CoreGraphics（窗口列表/合成输入）+ IOKit（电源断言/空闲）。窗口列表优先复用 `get-windows` 原生 helper。
 3. **规则系统按平台裁剪**：macOS 上保留 `keepalive`（→ `CGEventPostToPid`）和一个新的 `idle/awake`（→ 电源断言）；**`fg`/`uncapture`/`hook` 在 Mac 上置灰并标注"macOS 不支持（系统安全限制）"**。
 4. **权限引导**：首次用保活时引导用户在「系统设置 → 隐私与安全性 → 辅助功能」授权；TCC 授权绑定稳定签名，开发期也要用真证书签名否则每次 build 权限重置。
 5. **打包**：Developer ID 签名 + 公证 + 强化运行时；Electron 需 `cs.allow-jit`、`cs.allow-unsigned-executable-memory`；因加载 koffi/原生 helper 需 `cs.disable-library-validation`。**必须在 Mac 上 build/公证**（`electron-builder --mac`）。
